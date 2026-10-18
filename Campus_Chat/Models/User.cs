@@ -2,14 +2,14 @@ using Microsoft.VisualBasic;
 
 namespace Campus_Chat.Models;
 
-public class User
+public record User
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string DisplayName { get; set; } = "";
-    public string Note { get; set; } = "";
-    public string AvatarColour { get; set; } = "";
-    public int StudyYear { get; set; }
-    public bool IsAuditor { get; set; }
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public string DisplayName { get; init; } = "";
+    public string Note { get; init; } = "";
+    public string AvatarColour { get; init; } = "";
+    public int StudyYear { get; init; }
+    public bool IsAuditor { get; init; }
 }
 
 

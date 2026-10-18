@@ -1,10 +1,10 @@
 namespace Campus_Chat.Models;
 
-public class DirectMessage
+public record DirectMessage
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid DirectChatId { get; set; }
-    public Guid SenderId { get; set; }
-    public string Text { get; set; } = "";
-    public DateTimeOffset SentAt { get; set; } = DateTimeOffset.UtcNow;
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid DirectChatId { get; init; }
+    public Guid SenderId { get; init; }
+    public string Text { get; init; } = "";
+    public DateTimeOffset SentAt { get; init; } = DateTimeOffset.UtcNow;
 }
