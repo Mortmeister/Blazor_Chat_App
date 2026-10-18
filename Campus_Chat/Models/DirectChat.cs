@@ -1,8 +1,8 @@
 namespace Campus_Chat.Models;
 
-public class DirectChat
+public record DirectChat
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid FirstUserId { get; set; }
-    public Guid SecondUserId { get; set; }
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid FirstUserId { get; init; }
+    public Guid SecondUserId { get; init; }
 }
