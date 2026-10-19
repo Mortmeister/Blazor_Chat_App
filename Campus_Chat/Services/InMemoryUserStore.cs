@@ -35,6 +35,7 @@ public class InMemoryUserStore : IUserStore
         }
         return Task.CompletedTask;
     }
+    
     public InMemoryUserStore() => users.Add(new User { DisplayName = "Test MORTY!!!" });
 
 }

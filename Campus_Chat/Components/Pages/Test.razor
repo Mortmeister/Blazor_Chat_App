@@ -21,6 +21,7 @@ protected override async Task OnInitializedAsync()
 
 @page "/test"
 @inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.
 @rendermode InteractiveServer
 
 <h3>System- og profiltesting</h3>
@@ -45,6 +46,34 @@ protected override async Task OnInitializedAsync()
 
     <div style="margin-bottom: 10px;">
         <button class="btn btn-dark" @onclick="RunTestCaseD">Case D: Tilfeldig ny Guid</button>
+        <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
+    </div>
+    
+    <div style="margin-bottom: 10px;">
+        <button class="btn btn-dark" @onclick="ClearStatus">Reset</button>
+        <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
+    </div>
+</div>
+<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background-color: #f9f9f9;">
+    <h4>Kjør testtilfeller:</h4>
+    
+    <div style="margin-bottom: 10px;">
+        <button class="btn btn-success" @onclick="RunTestCase2A">Case A: Gyldig endring</button>
+        <small style="display:block; color: gray;">(Skal endre navn til "TestBruker123" og beholdes ved reload)</small>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+        <button class="btn btn-warning" @onclick="RunTestCase2B">Case B: Tomt navn</button>
+        <small style="display:block; color: gray;">(Skal kaste feil: Display name cannot be null)</small>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+        <button class="btn btn-danger" @onclick="RunTestCase2C">Case C: Ulik callerId og userId</button>
+        <small style="display:block; color: gray;">(Skal kaste feil: Unauthorized user...)</small>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+        <button class="btn btn-dark" @onclick="RunTestCase2D">Case D: Tilfeldig ny Guid</button>
         <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
     </div>
     
@@ -204,5 +233,128 @@ protected override async Task OnInitializedAsync()
     {
         all = await Users.GetAllAsync();
     }
+    
+    /*Test the bugs are gone using your throwaway /test page.
+     Temporarily call the store, or the service once it exists, and check:
+    Add two users and two threads. User A joins both. A’s membership list has 2 items, and B’s has 0.
+    Add 3 posts across 2 threads. GetPostsAsync for thread 1 returns only thread 1’s posts, oldest first.
+        Delete one post by its ID. The other two are still there.*/
+    private async Task RunTestCase2A()
+    {
+        ClearStatus();
+        try
+        {
+            var result = await Users.UpdateProfileAsync(
+                callerId: actualTestUserId, 
+                userId: actualTestUserId, 
+                displayName: "Darwin Gudleik", 
+                note: "Dette er en test-note", 
+                avatarColour: "Blue", 
+                studyYear: 3
+            );
+
+            if (result is not null)
+            {
+                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
+                await RefreshList(); // Oppdaterer listen på skjermen
+            }
+            else
+            {
+                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
+            }
+        }
+        catch (Exception ex)
+        {
+            testErrorMessage = ex.Message;
+        }
+    }
+    private async Task RunTestCase2B()
+    {
+        ClearStatus();
+        try
+        {
+            var result = await Users.UpdateProfileAsync(
+                callerId: actualTestUserId, 
+                userId: actualTestUserId, 
+                displayName: "Darwin Gudleik", 
+                note: "Dette er en test-note", 
+                avatarColour: "Blue", 
+                studyYear: 3
+            );
+
+            if (result is not null)
+            {
+                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
+                await RefreshList(); // Oppdaterer listen på skjermen
+            }
+            else
+            {
+                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
+            }
+        }
+        catch (Exception ex)
+        {
+            testErrorMessage = ex.Message;
+        }
+    }
+    private async Task RunTestCase2C()
+    {
+        ClearStatus();
+        try
+        {
+            var result = await Users.UpdateProfileAsync(
+                callerId: actualTestUserId, 
+                userId: actualTestUserId, 
+                displayName: "Darwin Gudleik", 
+                note: "Dette er en test-note", 
+                avatarColour: "Blue", 
+                studyYear: 3
+            );
+
+            if (result is not null)
+            {
+                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
+                await RefreshList(); // Oppdaterer listen på skjermen
+            }
+            else
+            {
+                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
+            }
+        }
+        catch (Exception ex)
+        {
+            testErrorMessage = ex.Message;
+        }
+    }
+    private async Task RunTestCase2D()
+    {
+        ClearStatus();
+        try
+        {
+            var result = await Users.UpdateProfileAsync(
+                callerId: actualTestUserId, 
+                userId: actualTestUserId, 
+                displayName: "Darwin Gudleik", 
+                note: "Dette er en test-note", 
+                avatarColour: "Blue", 
+                studyYear: 3
+            );
+
+            if (result is not null)
+            {
+                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
+                await RefreshList(); // Oppdaterer listen på skjermen
+            }
+            else
+            {
+                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
+            }
+        }
+        catch (Exception ex)
+        {
+            testErrorMessage = ex.Message;
+        }
+    }
+    
 }
 
