@@ -28,13 +28,13 @@ public class InMemoryChatStore : IChatStore
           }
      }
 
-     public Task SaveThreadAsync(ChatThread chat)
+     public Task SaveThreadAsync(ChatThread thread)
      {
           lock (gate)
           {
-               var index = threads.FindIndex(t => t.Id == chat.Id);
-               if (index >= 0) threads[index] = chat;
-               else threads.Add(chat);
+               var index = threads.FindIndex(t => t.Id == thread.Id);
+               if (index >= 0) threads[index] = thread;
+               else threads.Add(thread);
           }
 
           return Task.CompletedTask;
@@ -95,11 +95,15 @@ public class InMemoryChatStore : IChatStore
           }
      }
 
-     
-     /*
-      * SaveMembershipAsync matches on UserId only. When a user joins a second thread,
-      * it overwrites their first membership. Match on both UserId and ThreadId.
-      */
+     public Task<int> GetMembershipCountAsync(Guid threadId)
+     {
+          lock (gate)
+          {
+               int count = memberships.Count(m => m.ThreadId == threadId);
+               return Task.FromResult(count);
+          }
+     }
+
      public Task SaveMembershipAsync(ThreadMembership threadMembership)
      {
           lock (gate)
@@ -121,5 +125,11 @@ public class InMemoryChatStore : IChatStore
 
           return Task.CompletedTask;
      }
-     
+
+     public InMemoryChatStore()
+     {
+          threads.Add(new ChatThread { Name = "Test" });
+          threads.Add(new ChatThread { Name = "Test Thread 2", JoinCode = "123", IsPrivate = true});
+          threads.Add(new ChatThread { Name = "Study Group" });
+     }
 }
