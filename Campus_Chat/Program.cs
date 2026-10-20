@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<IChatStore, InMemoryChatStore>();
 builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
+builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<UserService>();
 
 var app = builder.Build();

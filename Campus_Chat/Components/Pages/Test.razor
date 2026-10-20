@@ -1,85 +1,45 @@
-@*@page "/test"
-@inject Campus_Chat.Services.UserService Users
-
-
-<button> Update </button>
-
-@foreach (var u in all)
-{
-    <p>@u.DisplayName</p>
-}
-
- 
-
-@code {
-private IReadOnlyList<Campus_Chat.Models.User> all = [];
-
-protected override async Task OnInitializedAsync()
-    => all = await Users.GetAllAsync();
-}*@
-
-
 @page "/test"
 @inject Campus_Chat.Services.UserService Users
-@inject Campus_Chat.Services.
+@inject Campus_Chat.Services.ChatService Threads
 @rendermode InteractiveServer
 
 <h3>System- og profiltesting</h3>
 
+
+
 <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background-color: #f9f9f9;">
     <h4>Kjør testtilfeller:</h4>
     
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-success" @onclick="RunTestCaseA">Case A: Gyldig endring</button>
-        <small style="display:block; color: gray;">(Skal endre navn til "TestBruker123" og beholdes ved reload)</small>
+    <div class="d-flex flex-row gap-5">
+        <div style="margin-bottom: 10px;">
+            <button class="btn btn-success" @onclick="RunTestCase2A">Join a thread</button>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <input
+                type="text"
+                @bind = "threadIdInput"
+                placeholder="Enter thread ID"
+                class="form-control" />
+        </div>
+        <div style="margin-bottom: 10px;">
+            <input
+                type="password"
+                @bind = "threadCodeInput"
+                placeholder="Enter thread Code"
+                class="form-control" />
+        </div>
     </div>
-
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-warning" @onclick="RunTestCaseB">Case B: Tomt navn</button>
-        <small style="display:block; color: gray;">(Skal kaste feil: Display name cannot be null)</small>
-    </div>
-
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-danger" @onclick="RunTestCaseC">Case C: Ulik callerId og userId</button>
-        <small style="display:block; color: gray;">(Skal kaste feil: Unauthorized user...)</small>
-    </div>
-
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-dark" @onclick="RunTestCaseD">Case D: Tilfeldig ny Guid</button>
-        <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
-    </div>
-    
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-dark" @onclick="ClearStatus">Reset</button>
-        <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
-    </div>
-</div>
-<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background-color: #f9f9f9;">
-    <h4>Kjør testtilfeller:</h4>
-    
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-success" @onclick="RunTestCase2A">Case A: Gyldig endring</button>
-        <small style="display:block; color: gray;">(Skal endre navn til "TestBruker123" og beholdes ved reload)</small>
-    </div>
-
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-warning" @onclick="RunTestCase2B">Case B: Tomt navn</button>
-        <small style="display:block; color: gray;">(Skal kaste feil: Display name cannot be null)</small>
-    </div>
-
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-danger" @onclick="RunTestCase2C">Case C: Ulik callerId og userId</button>
-        <small style="display:block; color: gray;">(Skal kaste feil: Unauthorized user...)</small>
-    </div>
-
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-dark" @onclick="RunTestCase2D">Case D: Tilfeldig ny Guid</button>
-        <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
-    </div>
-    
-    <div style="margin-bottom: 10px;">
-        <button class="btn btn-dark" @onclick="ClearStatus">Reset</button>
-        <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
+    <div class="d-flex flex-row gap-5">
+        <div style="margin-bottom: 10px;">
+            <button class="btn btn-danger" @onclick="RunTestCase2B">Leave a thread</button>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <input
+                type="text"
+                @bind = "threadIdInput"
+                placeholder="Enter thread ID"
+                class="form-control" />
+        </div>
     </div>
 </div>
 
@@ -106,26 +66,40 @@ protected override async Task OnInitializedAsync()
 {
     <p>ID: @u.Id | <strong>@u.DisplayName</strong> (År: @u.StudyYear)</p>
 }
+<h4>Threads:</h4>
+
+@foreach (var thread in allThreads)
+{
+    <p>
+        ID: @thread.Id |
+        <strong>@thread.Name</strong>
+        <p>Membership Count : {@thread.MembershipCount}</p>
+        (Private: @thread.IsPrivate)
+    </p>
+}
 
 @code {
     private IReadOnlyList<Campus_Chat.Models.User> all = [];
+    private IReadOnlyList<Campus_Chat.Models.ThreadSummary> allThreads = [];
     
     
     private string testResultMessage = "";
     private string testErrorMessage = "";
+    
+    private string threadIdInput = "";
+    private string threadCodeInput = "";
 
     
-    private Guid actualTestUserId = Guid.Parse("d4320e4c-2350-4b18-90cf-e975ed4e3d38"); 
+    private Guid actualTestUserId = Guid.Parse("b3cc96f1-6034-40cd-90c3-53cfe2002d6b"); 
+    private Guid actualTestUserId2 = Guid.Parse("f6fa421a-1910-49eb-9174-bd8697a6e15c"); 
+    
+    
+    private Guid actualThreadId = Guid.Parse("62e56492-c633-474b-9655-66f0ef2d1a4b"); 
 
     protected override async Task OnInitializedAsync()
     {
         await RefreshList();
-        
-        // Setter test-ID automatisk til den første brukeren i lista hvis du ikke har hardkodet en over
-        if (all.Count > 0 && actualTestUserId == Guid.Empty)
-        {
-            actualTestUserId = all[0].Id; 
-        }
+        await RefreshThreads();
     }
 
     private void ClearStatus()
@@ -134,135 +108,40 @@ protected override async Task OnInitializedAsync()
         testErrorMessage = "";
     }
 
-    // Case A: Gyldig endring
-    private async Task RunTestCaseA()
-    {
-        ClearStatus();
-        try
-        {
-            var result = await Users.UpdateProfileAsync(
-                callerId: actualTestUserId, 
-                userId: actualTestUserId, 
-                displayName: "Darwin Gudleik", 
-                note: "Dette er en test-note", 
-                avatarColour: "Blue", 
-                studyYear: 3
-            );
-
-            if (result is not null)
-            {
-                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
-                await RefreshList(); // Oppdaterer listen på skjermen
-            }
-            else
-            {
-                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
-            }
-        }
-        catch (Exception ex)
-        {
-            testErrorMessage = ex.Message;
-        }
-    }
-
-    // Case B: Tomt navn
-    private async Task RunTestCaseB()
-    {
-        ClearStatus();
-        try
-        {
-            await Users.UpdateProfileAsync(actualTestUserId, actualTestUserId, "", "test", "Red", 2);
-            testResultMessage = "Uventet suksess: Koden godtok et tomt navn!";
-        }
-        catch (ArgumentException ex)
-        {
-            testErrorMessage = $"{ex.Message} (Riktig feil fanget!)";
-        }
-        catch (Exception ex)
-        {
-            testErrorMessage = $"Feil type exception: {ex.GetType().Name} - {ex.Message}";
-        }
-    }
-
-    // Case C: Ulik callerId enn userId
-    private async Task RunTestCaseC()
-    {
-        ClearStatus();
-        try
-        {
-            Guid wrongCallerId = Guid.NewGuid(); // En helt annen ID
-            await Users.UpdateProfileAsync(wrongCallerId, actualTestUserId, "GyldigNavn", "test", "Red", 2);
-            testResultMessage = "Uventet suksess: Koden tillot ulik callerId og userId!";
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            testErrorMessage = $"{ex.Message} (Riktig feil fanget!)";
-        }
-        catch (Exception ex)
-        {
-            testErrorMessage = $"Feil type exception: {ex.GetType().Name} - {ex.Message}";
-        }
-    }
-
-    // Case D: Tilfeldig ny Guid (Skal si profilen ikke eksisterer)
-    private async Task RunTestCaseD()
-    {
-        ClearStatus();
-        try
-        {
-            Guid randomId = Guid.NewGuid();
-            var result = await Users.UpdateProfileAsync(randomId, randomId, "UkjentBruker", "test", "Red", 2);
-            
-            if (result is null)
-            {
-                testResultMessage = "Riktig oppførsel! Metoden returnerte 'null' fordi profilen ikke finnes.";
-            }
-            else
-            {
-                testResultMessage = "Uventet oppførsel: Metoden returnerte et objekt for en tilfeldig ID.";
-            }
-        }
-        catch (Exception ex)
-        {
-            // Hvis databaselaget ditt kaster en "KeyNotFoundException" i stedet for å returnere null, fanges det opp her
-            testErrorMessage = $"Fanget feilmelding: {ex.Message} (Dette er også en godkjent måte å si fra på at den ikke finnes)";
-        }
-    }
-
     private async Task RefreshList()
     {
         all = await Users.GetAllAsync();
+    }
+    
+    private async Task RefreshThreads()
+    {
+        allThreads = await Threads.GetThreadSummariesAsync();
     }
     
     /*Test the bugs are gone using your throwaway /test page.
      Temporarily call the store, or the service once it exists, and check:
     Add two users and two threads. User A joins both. A’s membership list has 2 items, and B’s has 0.
     Add 3 posts across 2 threads. GetPostsAsync for thread 1 returns only thread 1’s posts, oldest first.
-        Delete one post by its ID. The other two are still there.*/
+    Delete one post by its ID. The other two are still there.*/
     private async Task RunTestCase2A()
     {
-        ClearStatus();
+        if (!Guid.TryParse(threadIdInput, out Guid threadId))
+        {
+            testErrorMessage = "Please enter a valid thread ID.";
+            return;
+        }
+        
         try
         {
-            var result = await Users.UpdateProfileAsync(
+            await Threads.JoinThreadAsync(
                 callerId: actualTestUserId, 
-                userId: actualTestUserId, 
-                displayName: "Darwin Gudleik", 
-                note: "Dette er en test-note", 
-                avatarColour: "Blue", 
-                studyYear: 3
+                threadId: threadId,
+                code: threadCodeInput
             );
-
-            if (result is not null)
-            {
-                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
-                await RefreshList(); // Oppdaterer listen på skjermen
-            }
-            else
-            {
-                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
-            }
+            testResultMessage = "Join operation completed successfully.";
+            await RefreshThreads();
         }
+        
         catch (Exception ex)
         {
             testErrorMessage = ex.Message;
@@ -270,91 +149,156 @@ protected override async Task OnInitializedAsync()
     }
     private async Task RunTestCase2B()
     {
-        ClearStatus();
+        if (!Guid.TryParse(threadIdInput, out Guid threadId))
+        {
+            testErrorMessage = "Please enter a valid thread ID.";
+            return;
+        }
+        
         try
         {
-            var result = await Users.UpdateProfileAsync(
+            await Threads.LeaveThreadAsync(
                 callerId: actualTestUserId, 
-                userId: actualTestUserId, 
-                displayName: "Darwin Gudleik", 
-                note: "Dette er en test-note", 
-                avatarColour: "Blue", 
-                studyYear: 3
+                threadId: threadId
             );
-
-            if (result is not null)
-            {
-                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
-                await RefreshList(); // Oppdaterer listen på skjermen
-            }
-            else
-            {
-                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
-            }
+            testResultMessage = "Thread left successfully.";
+            await RefreshThreads();
         }
+        
         catch (Exception ex)
         {
             testErrorMessage = ex.Message;
         }
     }
-    private async Task RunTestCase2C()
-    {
-        ClearStatus();
-        try
-        {
-            var result = await Users.UpdateProfileAsync(
-                callerId: actualTestUserId, 
-                userId: actualTestUserId, 
-                displayName: "Darwin Gudleik", 
-                note: "Dette er en test-note", 
-                avatarColour: "Blue", 
-                studyYear: 3
-            );
 
-            if (result is not null)
-            {
-                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
-                await RefreshList(); // Oppdaterer listen på skjermen
-            }
-            else
-            {
-                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
-            }
-        }
-        catch (Exception ex)
-        {
-            testErrorMessage = ex.Message;
-        }
-    }
-    private async Task RunTestCase2D()
-    {
-        ClearStatus();
-        try
-        {
-            var result = await Users.UpdateProfileAsync(
-                callerId: actualTestUserId, 
-                userId: actualTestUserId, 
-                displayName: "Darwin Gudleik", 
-                note: "Dette er en test-note", 
-                avatarColour: "Blue", 
-                studyYear: 3
-            );
-
-            if (result is not null)
-            {
-                testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
-                await RefreshList(); // Oppdaterer listen på skjermen
-            }
-            else
-            {
-                testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
-            }
-        }
-        catch (Exception ex)
-        {
-            testErrorMessage = ex.Message;
-        }
-    }
+    
     
 }
 
+
+
+@*
+<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background-color: #f9f9f9;">
+       <h4>Kjør testtilfeller:</h4>
+       
+       <div style="margin-bottom: 10px;">
+           <button class="btn btn-success" @onclick="RunTestCaseA">Case A: Gyldig endring</button>
+           <small style="display:block; color: gray;">(Skal endre navn til "TestBruker123" og beholdes ved reload)</small>
+       </div>
+   
+       <div style="margin-bottom: 10px;">
+           <button class="btn btn-warning" @onclick="RunTestCaseB">Case B: Tomt navn</button>
+           <small style="display:block; color: gray;">(Skal kaste feil: Display name cannot be null)</small>
+       </div>
+   
+       <div style="margin-bottom: 10px;">
+           <button class="btn btn-danger" @onclick="RunTestCaseC">Case C: Ulik callerId og userId</button>
+           <small style="display:block; color: gray;">(Skal kaste feil: Unauthorized user...)</small>
+       </div>
+   
+       <div style="margin-bottom: 10px;">
+           <button class="btn btn-dark" @onclick="RunTestCaseD">Case D: Tilfeldig ny Guid</button>
+           <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
+       </div>
+       
+       <div style="margin-bottom: 10px;">
+           <button class="btn btn-dark" @onclick="ClearStatus">Reset</button>
+           <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
+       </div>
+       
+       
+           // Case A: Gyldig endring
+   private async Task RunTestCaseA()
+   {
+       ClearStatus();
+       try
+       {
+           var result = await Users.UpdateProfileAsync(
+               callerId: actualTestUserId, 
+               userId: actualTestUserId, 
+               displayName: "Darwin Gudleik", 
+               note: "Dette er en test-note", 
+               avatarColour: "Blue", 
+               studyYear: 3
+           );
+
+           if (result is not null)
+           {
+               testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
+               await RefreshList(); // Oppdaterer listen på skjermen
+           }
+           else
+           {
+               testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
+           }
+       }
+       catch (Exception ex)
+       {
+           testErrorMessage = ex.Message;
+       }
+   }
+
+   // Case B: Tomt navn
+   private async Task RunTestCaseB()
+   {
+       ClearStatus();
+       try
+       {
+           await Users.UpdateProfileAsync(actualTestUserId, actualTestUserId, "", "test", "Red", 2);
+           testResultMessage = "Uventet suksess: Koden godtok et tomt navn!";
+       }
+       catch (ArgumentException ex)
+       {
+           testErrorMessage = $"{ex.Message} (Riktig feil fanget!)";
+       }
+       catch (Exception ex)
+       {
+           testErrorMessage = $"Feil type exception: {ex.GetType().Name} - {ex.Message}";
+       }
+   }
+
+   // Case C: Ulik callerId enn userId
+   private async Task RunTestCaseC()
+   {
+       ClearStatus();
+       try
+       {
+           Guid wrongCallerId = Guid.NewGuid(); // En helt annen ID
+           await Users.UpdateProfileAsync(wrongCallerId, actualTestUserId, "GyldigNavn", "test", "Red", 2);
+           testResultMessage = "Uventet suksess: Koden tillot ulik callerId og userId!";
+       }
+       catch (UnauthorizedAccessException ex)
+       {
+           testErrorMessage = $"{ex.Message} (Riktig feil fanget!)";
+       }
+       catch (Exception ex)
+       {
+           testErrorMessage = $"Feil type exception: {ex.GetType().Name} - {ex.Message}";
+       }
+   }
+
+   // Case D: Tilfeldig ny Guid (Skal si profilen ikke eksisterer)
+   private async Task RunTestCaseD()
+   {
+       ClearStatus();
+       try
+       {
+           Guid randomId = Guid.NewGuid();
+           var result = await Users.UpdateProfileAsync(randomId, randomId, "UkjentBruker", "test", "Red", 2);
+           
+           if (result is null)
+           {
+               testResultMessage = "Riktig oppførsel! Metoden returnerte 'null' fordi profilen ikke finnes.";
+           }
+           else
+           {
+               testResultMessage = "Uventet oppførsel: Metoden returnerte et objekt for en tilfeldig ID.";
+           }
+       }
+       catch (Exception ex)
+       {
+           // Hvis databaselaget ditt kaster en "KeyNotFoundException" i stedet for å returnere null, fanges det opp her
+           testErrorMessage = $"Fanget feilmelding: {ex.Message} (Dette er også en godkjent måte å si fra på at den ikke finnes)";
+       }
+   }
+   </div>*@
