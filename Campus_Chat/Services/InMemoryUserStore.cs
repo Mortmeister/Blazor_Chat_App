@@ -38,9 +38,22 @@ public class InMemoryUserStore : IUserStore
     
     public InMemoryUserStore()
     {
-        users.Add(new User { DisplayName = "Marvin straight" });
-        users.Add(new User { DisplayName = "Marvin Gaye" });
+        users.Add(new User { Id=SeedIds.Ola, DisplayName = "Ola", StudyYear = 2, AvatarColour = "green"});
+        users.Add(new User { Id=SeedIds.Kari,DisplayName = "Kari", StudyYear = 2, AvatarColour = "red"});
+        users.Add(new User { Id=SeedIds.Auditor,DisplayName = "Auditor", StudyYear = 4, IsAuditor = true, AvatarColour = "blue"});
+        users.Add(new User { Id=SeedIds.Lecturer,DisplayName = "Lecturer", StudyYear = 5, AvatarColour = "red"});
     } 
         
-
+/*
+ 
+      public Guid Id { get; init; } = Guid.NewGuid();
+    public string DisplayName { get; init; } = "";
+      public string Note { get; init; } = "";
+    public string AvatarColour { get; init; } = "";
+      public int StudyYear { get; init; }
+    public bool IsAuditor { get; init; }
+ 
+ */
+    
+    
 }

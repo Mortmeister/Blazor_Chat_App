@@ -1,5 +1,4 @@
 using Campus_Chat.Models;
-using Campus_Chat.Models.Post;
 
 namespace Campus_Chat.Services;
 
@@ -126,10 +125,51 @@ public class InMemoryChatStore : IChatStore
           return Task.CompletedTask;
      }
 
-     public InMemoryChatStore()
+     public InMemoryChatStore() => Seed();
+     private void Seed()
      {
-          threads.Add(new ChatThread { Name = "Test" });
-          threads.Add(new ChatThread { Name = "Test Thread 2", JoinCode = "123", IsPrivate = true});
-          threads.Add(new ChatThread { Name = "Study Group" });
+          threads.Add(new ChatThread { Id = SeedIds.GeneralThread, Name = "Test" });
+          threads.Add(new ChatThread { Name = "Private thread", JoinCode = "123", IsPrivate = true });
+          threads.Add(new ChatThread { Id = SeedIds.PrivateThread, Name = "Study Group" });
+          
+          memberships.Add(new ThreadMembership{ThreadId = SeedIds.GeneralThread, UserId = SeedIds.Kari});
+          memberships.Add(new ThreadMembership{ThreadId = SeedIds.GeneralThread, UserId = SeedIds.Ola});
+          memberships.Add(new ThreadMembership{ThreadId = SeedIds.PrivateThread, UserId = SeedIds.Ola});
+          
+          var question = new Post
+          {
+               ThreadId = SeedIds.GeneralThread, 
+               AuthorId = SeedIds.Kari,
+               Text = "This is a post test!",
+               Time = DateTimeOffset.UtcNow.AddHours(-5)
+          };
+          posts.Add(question);
+          
+          posts.Add(new Post
+          {
+               ThreadId = SeedIds.GeneralThread,
+               AuthorId = SeedIds.Lecturer,
+               Text = "It's on the course page under Documents.",
+               Time = DateTimeOffset.UtcNow.AddHours(-4),
+               ParentPostId = question.Id      // this is what makes it a reply
+          });
+          
+          var questionPrivate = new Post
+          {
+               ThreadId = SeedIds.PrivateThread, 
+               AuthorId = SeedIds.Ola,
+               Text = "This is a PRIVATE MESSAGE!!",
+               Time = DateTimeOffset.UtcNow.AddHours(-5)
+          };
+          posts.Add(questionPrivate);
+          
+          posts.Add(new Post
+          {
+               ThreadId = SeedIds.PrivateThread,
+               AuthorId = SeedIds.Lecturer,
+               Text = "Relaaax bro",
+               Time = DateTimeOffset.UtcNow.AddHours(-4),
+               ParentPostId = questionPrivate.Id
+          });
      }
 }
