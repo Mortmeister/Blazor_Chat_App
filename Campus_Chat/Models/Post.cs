@@ -1,4 +1,4 @@
-namespace Campus_Chat.Models.Post;
+namespace Campus_Chat.Models;
 
 public record Post
 {

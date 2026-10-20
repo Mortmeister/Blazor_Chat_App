@@ -1,6 +1,9 @@
 @page "/test"
 @inject Campus_Chat.Services.UserService Users
 @inject Campus_Chat.Services.ChatService Threads
+@inject Campus_Chat.Services.IChatStore Store
+@inject Campus_Chat.Services.ChatService Chat
+
 @rendermode InteractiveServer
 
 <h3>System- og profiltesting</h3>
@@ -30,9 +33,11 @@
         </div>
     </div>
     <div class="d-flex flex-row gap-5">
+
         <div style="margin-bottom: 10px;">
             <button class="btn btn-danger" @onclick="RunTestCase2B">Leave a thread</button>
         </div>
+        
         <div style="margin-bottom: 10px;">
             <input
                 type="text"
@@ -40,6 +45,11 @@
                 placeholder="Enter thread ID"
                 class="form-control" />
         </div>
+        
+        <button @onclick="Load">Load posts</button>
+        <button @onclick="TryJoin">Join private thread as Ola</button>
+        <button @onclick="LoadPrivate">Load private posts</button>
+        <p>@message</p>
     </div>
 </div>
 
@@ -64,7 +74,13 @@
 <h4>Brukerliste:</h4>
 @foreach (var u in all)
 {
-    <p>ID: @u.Id | <strong>@u.DisplayName</strong> (År: @u.StudyYear)</p>
+    
+    <div>
+        <strong>@u.DisplayName</strong> 
+        <p>ID: @u.Id</p>
+        <p>(År: @u.StudyYear)</p>
+        <p>@u.IsAuditor</p>
+    </div>
 }
 <h4>Threads:</h4>
 
@@ -78,9 +94,24 @@
     </p>
 }
 
+<h4>Posts:</h4>
+@foreach (var post in allPosts)
+{
+    <div class="d-flex flex-column">
+        <h5>Text: @post.Text</h5>
+        <p>Guid ID:  @post.Id</p>
+        <p>@post.Time.ToString("HH:mm")</p>
+        <p>@post.AuthorId</p>
+    </div>
+}
+
 @code {
     private IReadOnlyList<Campus_Chat.Models.User> all = [];
     private IReadOnlyList<Campus_Chat.Models.ThreadSummary> allThreads = [];
+    private IReadOnlyList<Campus_Chat.Models.Post> allPosts = [];
+    
+    
+    
     
     
     private string testResultMessage = "";
@@ -90,7 +121,7 @@
     private string threadCodeInput = "";
 
     
-    private Guid actualTestUserId = Guid.Parse("b3cc96f1-6034-40cd-90c3-53cfe2002d6b"); 
+    private Guid actualTestUserId = Guid.Parse("11111111-1111-1111-1111-111111111111"); 
     private Guid actualTestUserId2 = Guid.Parse("f6fa421a-1910-49eb-9174-bd8697a6e15c"); 
     
     
@@ -117,6 +148,30 @@
     {
         allThreads = await Threads.GetThreadSummariesAsync();
     }
+    
+    private async Task Load()
+        => allPosts = await Store.GetPostsAsync(Campus_Chat.Services.SeedIds.GeneralThread);
+    
+    
+    private string code = "";
+    private string message = "";
+    
+    private async Task TryJoin()
+    {
+        try
+        {
+            await Chat.JoinThreadAsync(Campus_Chat.Services.SeedIds.Ola,
+                Campus_Chat.Services.SeedIds.PrivateThread, code);
+            message = "Joined.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.Message;
+        }
+    }
+    
+    private async Task LoadPrivate()
+        => allPosts = await Store.GetPostsAsync(Campus_Chat.Services.SeedIds.PrivateThread);
     
     /*Test the bugs are gone using your throwaway /test page.
      Temporarily call the store, or the service once it exists, and check:
@@ -170,135 +225,4 @@
             testErrorMessage = ex.Message;
         }
     }
-
-    
-    
 }
-
-
-
-@*
-<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background-color: #f9f9f9;">
-       <h4>Kjør testtilfeller:</h4>
-       
-       <div style="margin-bottom: 10px;">
-           <button class="btn btn-success" @onclick="RunTestCaseA">Case A: Gyldig endring</button>
-           <small style="display:block; color: gray;">(Skal endre navn til "TestBruker123" og beholdes ved reload)</small>
-       </div>
-   
-       <div style="margin-bottom: 10px;">
-           <button class="btn btn-warning" @onclick="RunTestCaseB">Case B: Tomt navn</button>
-           <small style="display:block; color: gray;">(Skal kaste feil: Display name cannot be null)</small>
-       </div>
-   
-       <div style="margin-bottom: 10px;">
-           <button class="btn btn-danger" @onclick="RunTestCaseC">Case C: Ulik callerId og userId</button>
-           <small style="display:block; color: gray;">(Skal kaste feil: Unauthorized user...)</small>
-       </div>
-   
-       <div style="margin-bottom: 10px;">
-           <button class="btn btn-dark" @onclick="RunTestCaseD">Case D: Tilfeldig ny Guid</button>
-           <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
-       </div>
-       
-       <div style="margin-bottom: 10px;">
-           <button class="btn btn-dark" @onclick="ClearStatus">Reset</button>
-           <small style="display:block; color: gray;">(Skal returnere null/si fra at profilen ikke finnes)</small>
-       </div>
-       
-       
-           // Case A: Gyldig endring
-   private async Task RunTestCaseA()
-   {
-       ClearStatus();
-       try
-       {
-           var result = await Users.UpdateProfileAsync(
-               callerId: actualTestUserId, 
-               userId: actualTestUserId, 
-               displayName: "Darwin Gudleik", 
-               note: "Dette er en test-note", 
-               avatarColour: "Blue", 
-               studyYear: 3
-           );
-
-           if (result is not null)
-           {
-               testResultMessage = $"Suksess! Navnet ble endret til '{result.DisplayName}'.";
-               await RefreshList(); // Oppdaterer listen på skjermen
-           }
-           else
-           {
-               testErrorMessage = "Metoden returnerte 'null'. Profilen finnes kanskje ikke i databasen?";
-           }
-       }
-       catch (Exception ex)
-       {
-           testErrorMessage = ex.Message;
-       }
-   }
-
-   // Case B: Tomt navn
-   private async Task RunTestCaseB()
-   {
-       ClearStatus();
-       try
-       {
-           await Users.UpdateProfileAsync(actualTestUserId, actualTestUserId, "", "test", "Red", 2);
-           testResultMessage = "Uventet suksess: Koden godtok et tomt navn!";
-       }
-       catch (ArgumentException ex)
-       {
-           testErrorMessage = $"{ex.Message} (Riktig feil fanget!)";
-       }
-       catch (Exception ex)
-       {
-           testErrorMessage = $"Feil type exception: {ex.GetType().Name} - {ex.Message}";
-       }
-   }
-
-   // Case C: Ulik callerId enn userId
-   private async Task RunTestCaseC()
-   {
-       ClearStatus();
-       try
-       {
-           Guid wrongCallerId = Guid.NewGuid(); // En helt annen ID
-           await Users.UpdateProfileAsync(wrongCallerId, actualTestUserId, "GyldigNavn", "test", "Red", 2);
-           testResultMessage = "Uventet suksess: Koden tillot ulik callerId og userId!";
-       }
-       catch (UnauthorizedAccessException ex)
-       {
-           testErrorMessage = $"{ex.Message} (Riktig feil fanget!)";
-       }
-       catch (Exception ex)
-       {
-           testErrorMessage = $"Feil type exception: {ex.GetType().Name} - {ex.Message}";
-       }
-   }
-
-   // Case D: Tilfeldig ny Guid (Skal si profilen ikke eksisterer)
-   private async Task RunTestCaseD()
-   {
-       ClearStatus();
-       try
-       {
-           Guid randomId = Guid.NewGuid();
-           var result = await Users.UpdateProfileAsync(randomId, randomId, "UkjentBruker", "test", "Red", 2);
-           
-           if (result is null)
-           {
-               testResultMessage = "Riktig oppførsel! Metoden returnerte 'null' fordi profilen ikke finnes.";
-           }
-           else
-           {
-               testResultMessage = "Uventet oppførsel: Metoden returnerte et objekt for en tilfeldig ID.";
-           }
-       }
-       catch (Exception ex)
-       {
-           // Hvis databaselaget ditt kaster en "KeyNotFoundException" i stedet for å returnere null, fanges det opp her
-           testErrorMessage = $"Fanget feilmelding: {ex.Message} (Dette er også en godkjent måte å si fra på at den ikke finnes)";
-       }
-   }
-   </div>*@

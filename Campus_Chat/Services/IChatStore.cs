@@ -1,5 +1,4 @@
 using Campus_Chat.Models;
-using Campus_Chat.Models.Post;
 
 namespace Campus_Chat.Services;
 
