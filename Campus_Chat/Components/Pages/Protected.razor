@@ -1,0 +1,21 @@
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@page "/protected"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject NavigationManager NV
+
+
+
+<h2>Welcome @CurrentUser.User?.DisplayName</h2>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await CurrentUser.InitializeAsync();
+        if (CurrentUser.User is null)
+        {
+            NV.NavigateTo("/login");
+        }
+    }
+}
