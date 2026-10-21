@@ -1,0 +1,55 @@
+@rendermode InteractiveServer
+@page "/login"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject NavigationManager NV
+
+<h1>Welcome. Lets log you in</h1>
+
+
+<div class="d-flex gap-5">
+    <select @bind="_currentUserId">
+        @foreach (var u in all)
+        {
+            <option value="@u.Id">@u.DisplayName</option>
+        }
+    </select>
+
+    <button type="button" class="btn btn-outline-success" @onclick="LoginUser">Login</button>
+    
+</div>
+    <p>@userMessage</p>
+
+@code 
+{
+    private IReadOnlyList<Campus_Chat.Models.User> all = [];
+    private Guid _currentUserId;
+    private User? _currentUser;
+    private string? userMessage = "";
+    
+    private async Task LoginUser()
+    {
+        try
+        {
+        await CurrentUser.SignInUser(_currentUserId);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+            throw;
+        }
+        NV.NavigateTo("./protected");
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshList();
+        _currentUserId = all.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    private async Task RefreshList()
+    {
+        all = await Users.GetAllAsync();
+    }
+}

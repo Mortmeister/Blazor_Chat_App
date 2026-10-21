@@ -10,6 +10,7 @@ builder.Services.AddSingleton<IChatStore, InMemoryChatStore>();
 builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<UserService>();
+builder.Services.AddScoped<CurrentUserService>();
 
 var app = builder.Build();
 
