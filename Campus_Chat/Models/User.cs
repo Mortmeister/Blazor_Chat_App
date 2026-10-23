@@ -10,5 +10,7 @@ public record User
     public string AvatarColour { get; init; } = "";
     public int StudyYear { get; init; }
     public bool IsAuditor { get; init; }
+
+    public string? ImageUrl { get; init; }
 }
 
