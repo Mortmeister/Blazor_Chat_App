@@ -1,15 +1,28 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @page "/protected"
 @using Campus_Chat.Models
-@inject Campus_Chat.Services.UserService Users
 @inject Campus_Chat.Services.CurrentUserService CurrentUser
 @inject NavigationManager NV
 
 
 
 <h2>Welcome @CurrentUser.User?.DisplayName</h2>
+@if (CurrentUser.User is { } user)
+{
+    @if (!string.IsNullOrWhiteSpace(user.ImageUrl))
+    {
+        <img src="@user.ImageUrl"
+             alt="@user.DisplayName's avatar"
+             class="d-block h-100 w-100" />
+    }
+}
+
+<button @onclick="HandleLogout">Log out</button>
 
 @code {
+    
+    
+    
     protected override async Task OnInitializedAsync()
     {
         await CurrentUser.InitializeAsync();
@@ -18,4 +31,9 @@
             NV.NavigateTo("/login");
         }
     }
-}
+
+    private async Task HandleLogout()
+    {
+        await CurrentUser.SignOutUser();
+    }
+    }

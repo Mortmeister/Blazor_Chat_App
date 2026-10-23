@@ -38,7 +38,7 @@ public class InMemoryUserStore : IUserStore
     
     public InMemoryUserStore()
     {
-        users.Add(new User { Id=SeedIds.Ola, DisplayName = "Ola", StudyYear = 2, AvatarColour = "green"});
+        users.Add(new User { Id=SeedIds.Ola, DisplayName = "Ola", StudyYear = 2, AvatarColour = "green", ImageUrl = "https://media.licdn.com/dms/image/v2/C4E03AQFuI-9ceWkKoA/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1516833613576?e=2147483647&v=beta&t=BWSwBYjib43fZr14Vofzu7jYPX2bMUDF6BWQGq2Gj_Q"});
         users.Add(new User { Id=SeedIds.Kari,DisplayName = "Kari", StudyYear = 2, AvatarColour = "red"});
         users.Add(new User { Id=SeedIds.Auditor,DisplayName = "Auditor", StudyYear = 4, IsAuditor = true, AvatarColour = "blue"});
         users.Add(new User { Id=SeedIds.Lecturer,DisplayName = "Lecturer", StudyYear = 5, AvatarColour = "red"});
