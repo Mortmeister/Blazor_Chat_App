@@ -45,6 +45,13 @@ public class CurrentUserService(ProtectedSessionStorage storage, UserService use
         await storage.DeleteAsync(Key);
         NotifyStateChanged();
     }
+    /// <summary>Reloads the signed-in user from the store, e.g. after a profile edit.</summary>
+    public async Task RefreshAsync()
+    {
+        if (User is null) return;
+        User = await users.GetByIdAsync(User.Id);
+        NotifyStateChanged();
+    }
     
     private void NotifyStateChanged() => OnChange?.Invoke();
 }

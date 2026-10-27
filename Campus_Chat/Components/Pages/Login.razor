@@ -1,4 +1,3 @@
-@rendermode InteractiveServer
 @page "/login"
 @using Campus_Chat.Models
 @inject Campus_Chat.Services.UserService Users
@@ -32,14 +31,13 @@
     {
         try
         {
-        await CurrentUser.SignInUser(_currentUserId);
+            await CurrentUser.SignInUser(_currentUserId);
+            NV.NavigateTo($"/profile/{CurrentUser.User!.Id}");
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
-            throw;
+            userMessage = e.Message;
         }
-        NV.NavigateTo("./protected");
     }
     
     protected override async Task OnInitializedAsync()

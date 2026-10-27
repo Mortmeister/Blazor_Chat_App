@@ -1,3 +1,156 @@
-@page "/profile"
+@page "/profile/{Id:guid}"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.ChatService Chat
+@inject NavigationManager NV
 
-<h1>My Profile here</h1>
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (profile is null)
+{
+    <p>This profile doesn't exist.</p>
+}
+else
+{
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="rounded-circle"
+             style="width:64px;height:64px;background-color:@(string.IsNullOrWhiteSpace(profile.AvatarColour) ? "#6c757d" : profile.AvatarColour)"></div>
+        <div>
+            <h1 class="mb-0">@profile.DisplayName</h1>
+            <small>Year @profile.StudyYear</small>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(profile.Note))
+    {
+        <p>@profile.Note</p>
+    }
+
+    @if (isOwner && !editing)
+    {
+        <button class="btn btn-outline-primary btn-sm" @onclick="StartEdit">Edit profile</button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="HandleLogout">Log out</button>
+    }
+
+    @if (editing)
+    {
+        <div class="border rounded p-3 my-3">
+            <div class="mb-2">
+                <label>Display name</label>
+                <input class="form-control" @bind="editName" />
+            </div>
+            <div class="mb-2">
+                <label>About me</label>
+                <textarea class="form-control" @bind="editNote"></textarea>
+            </div>
+            <div class="mb-2">
+                <label>Avatar colour</label>
+                <input type="color" class="form-control form-control-color" @bind="editColour" />
+            </div>
+            <div class="mb-2">
+                <label>Study year</label>
+                <select class="form-select" @bind="editYear">
+                    @for (var y = 1; y <= 5; y++)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </div>
+            @if (error is not null)
+            {
+                <p class="text-danger">@error</p>
+            }
+            <button class="btn btn-success btn-sm" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-link btn-sm" @onclick="CancelEdit">Cancel</button>
+        </div>
+    }
+
+    <h2>Threads</h2>
+    @if (myThreads.Count == 0)
+    {
+        <p>Hasn't joined any threads yet.</p>
+    }
+    else
+    {
+        @foreach (var thread in myThreads)
+        {
+            <div>
+                <a href="/thread/@thread.Id"><strong>@thread.Name</strong></a>
+                <span>(@thread.MembershipCount members)</span>
+                @if (thread.IsPrivate) { <span>(private)</span> }
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private User? profile;
+    private IReadOnlyList<ThreadSummary> myThreads = [];
+    private bool loading = true;
+    private bool editing;
+    private string? error;
+
+    private string editName = "", editNote = "", editColour = "#6c757d";
+    private int editYear = 1;
+
+    private bool isOwner => CurrentUser.User?.Id == Id;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        editing = false;
+
+        await CurrentUser.InitializeAsync();
+        if (CurrentUser.User is null)
+        {
+            NV.NavigateTo("/login");
+            return;
+        }
+
+        profile = await Users.GetByIdAsync(Id);
+        myThreads = profile is null
+            ? []
+            : await Chat.GetThreadsForUserAsync(CurrentUser.User.Id, Id);
+
+        loading = false;
+    }
+
+    private void StartEdit()
+    {
+        editName = profile!.DisplayName;
+        editNote = profile.Note;
+        editColour = string.IsNullOrWhiteSpace(profile.AvatarColour) ? "#6c757d" : profile.AvatarColour;
+        editYear = profile.StudyYear < 1 ? 1 : profile.StudyYear;
+        error = null;
+        editing = true;
+    }
+
+    private void CancelEdit() => editing = false;
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            // The service re-checks that the caller owns this profile
+            profile = await Users.UpdateProfileAsync(CurrentUser.User!.Id, Id, editName, editNote, editColour, editYear);
+            await CurrentUser.RefreshAsync();
+            editing = false;
+            error = null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or UnauthorizedAccessException or KeyNotFoundException)
+        {
+            error = ex.Message;   // the service writes these messages for users to read
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await CurrentUser.SignOutUser();
+        NV.NavigateTo("/login");
+    }
+}
