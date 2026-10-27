@@ -12,6 +12,9 @@ builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<CurrentUserService>();
 
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents(options => options.DetailedErrors = true);
+
 var app = builder.Build();
 
 

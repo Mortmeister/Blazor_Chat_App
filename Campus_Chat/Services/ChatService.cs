@@ -10,20 +10,36 @@ public class ChatService(IChatStore store)
     {
         var threads = await store.GetAllThreadsAsync();
         var summaries = new List<ThreadSummary>();
-
         foreach (var thread in threads)
         {
-            int count = await store.GetMembershipCountAsync(thread.Id);
+            summaries.Add(await ToSummaryAsync(thread));
+        }
+        return summaries;
+    }
+    private async Task<ThreadSummary> ToSummaryAsync(ChatThread thread)
+    {
+        var count = await store.GetMembershipCountAsync(thread.Id);
+        return new ThreadSummary(thread.Id, thread.Name, count, thread.IsPrivate);
+    }
+    /// <summary>Gets the threads that a user has joined, ordered by name.</summary>
+    /// <remarks>When someone else is viewing, private threads are left out, because membership of a private thread is not for others to see.</remarks>
+    /// <returns>The joined threads, or an empty list when the user has joined none.</returns>
+    
+    public async Task<IReadOnlyList<ThreadSummary>> GetThreadsForUserAsync(Guid callerId, Guid userId)
+    {
+        var memberships = await store.GetMembershipsForUserAsync(userId);
+        var result = new List<ThreadSummary>();
 
-            summaries.Add(new ThreadSummary(
-                thread.Id,
-                thread.Name,
-                count,
-                thread.IsPrivate
-            ));
+        foreach (var membership in memberships)
+        {
+            var thread = await store.GetThreadByIdAsync(membership.ThreadId);
+            if (thread is null) continue;                          // thread no longer exists
+            if (thread.IsPrivate && callerId != userId) continue;  // hide private threads from other viewers
+
+            result.Add(await ToSummaryAsync(thread));
         }
 
-        return summaries;
+        return result.OrderBy(t => t.Name).ToList();
     }
     
     public async Task<int> GetMembershipCountAsync(Guid threadId)

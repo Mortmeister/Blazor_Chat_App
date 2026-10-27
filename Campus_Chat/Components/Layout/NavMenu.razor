@@ -1,5 +1,4 @@
 ﻿@inject Campus_Chat.Services.CurrentUserService CurrentUser
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @implements IDisposable
 
 
@@ -38,11 +37,14 @@
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> All Threads
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/profile" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> My Profile
-            </NavLink>
-        </div>
+        @if (CurrentUser.User is not null)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="@($"/profile/{CurrentUser.User.Id}")">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> My profile
+                </NavLink>
+            </div>
+        }
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/chats" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Chats
