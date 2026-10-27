@@ -1,0 +1,31 @@
+@using Campus_Chat.Models
+
+<div class="border rounded p-2 mb-2">
+    <strong>@AuthorName</strong>
+    <small class="text-muted">@Post.Time.LocalDateTime.ToString("g")</small>
+    <div>@Post.Text</div>
+
+    <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => OnReply.InvokeAsync(Post.Id)">Reply</button>
+
+    @if (CanDelete)
+    {
+        <button class="btn btn-link btn-sm p-0 text-danger" @onclick="() => OnDelete.InvokeAsync(Post.Id)">Delete</button>
+    }
+</div>
+
+@code {
+    /// <summary>The post to show.</summary>
+    [Parameter] public required Post Post { get; set; }
+
+    /// <summary>The display name of the author. The parent looks it up.</summary>
+    [Parameter] public string AuthorName { get; set; } = "Unknown user";
+
+    /// <summary>Whether to show the delete button. The service still enforces the rule.</summary>
+    [Parameter] public bool CanDelete { get; set; }
+
+    /// <summary>Raised with the post's ID when Reply is clicked. The parent decides what it means.</summary>
+    [Parameter] public EventCallback<Guid> OnReply { get; set; }
+
+    /// <summary>Raised with the post's ID when Delete is clicked. The parent decides what it means.</summary>
+    [Parameter] public EventCallback<Guid> OnDelete { get; set; }
+}

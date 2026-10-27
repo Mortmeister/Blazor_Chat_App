@@ -5,6 +5,7 @@
 @inject Campus_Chat.Services.ChatService Chat
 @inject NavigationManager NV
 
+
 @if (loading)
 {
     <p>Loading...</p>
@@ -42,20 +43,28 @@ else
     }
     else if (posts.Count == 0)
     {
-        <p>No posts yet. Be the first to write one.</p>
+        <p>No posts yet!</p>
     }
     else
     {
-        @foreach (var post in posts)
+        @foreach (var post in posts.Where(p => p.ParentPostId is null))
         {
-            <div class="border rounded p-2 mb-2">
-                <strong>@AuthorName(post.AuthorId)</strong>
-                <small class="text-muted">@post.Time.LocalDateTime.ToString("g")</small>
-                <div>@post.Text</div>
-            </div>
+            <PostComponent Post="post"
+                           AuthorName="@AuthorName(post.AuthorId)"
+                           CanDelete="@(post.AuthorId == CurrentUser.User!.Id)"
+                           OnReply="StartReply"/>
+
+            @foreach (var reply in posts.Where(r => r.ParentPostId == post.Id))
+            {
+                <div class="ms-4">
+                    <PostComponent Post="reply"
+                                   AuthorName="@AuthorName(reply.AuthorId)"
+                                   CanDelete="@(reply.AuthorId == CurrentUser.User!.Id)"
+                                   OnReply="StartReply"/>
+                </div>
+            }
         }
     }
-}
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -68,7 +77,10 @@ else
     private bool accessDenied;
     private string code = "";
     private string? message;
+    private Guid? replyToId;
 
+    private void StartReply(Guid postId) => replyToId = postId;
+    
     protected override async Task OnParametersSetAsync()
     {
         await CurrentUser.InitializeAsync();
@@ -126,4 +138,5 @@ else
 
     private string AuthorName(Guid authorId)
         => authors.TryGetValue(authorId, out var name) ? name : "Unknown user";
+}
 }
