@@ -1,0 +1,129 @@
+@page "/thread/{Id:guid}"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.ChatService Chat
+@inject NavigationManager NV
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (summary is null)
+{
+    <p>This thread doesn't exist.</p>
+    <a href="/threads">Back to all threads</a>
+}
+else
+{
+    <h1>@summary.Name</h1>
+    @if (summary.IsPrivate) { <span class="badge bg-secondary">private</span> }
+
+    @if (!isMember)
+    {
+        <div class="my-3">
+            @if (summary.IsPrivate)
+            {
+                <input class="form-control form-control-sm mb-2" style="max-width:15rem"
+                       placeholder="Join code" @bind="code" />
+            }
+            <button class="btn btn-outline-success btn-sm" @onclick="JoinAsync">Join this thread</button>
+        </div>
+    }
+
+    @if (message is not null)
+    {
+        <p class="text-danger">@message</p>
+    }
+
+    @if (accessDenied)
+    {
+        <p>This is a private thread. Enter the code above to read its posts.</p>
+    }
+    else if (posts.Count == 0)
+    {
+        <p>No posts yet. Be the first to write one.</p>
+    }
+    else
+    {
+        @foreach (var post in posts)
+        {
+            <div class="border rounded p-2 mb-2">
+                <strong>@AuthorName(post.AuthorId)</strong>
+                <small class="text-muted">@post.Time.LocalDateTime.ToString("g")</small>
+                <div>@post.Text</div>
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ThreadSummary? summary;
+    private IReadOnlyList<Post> posts = [];
+    private Dictionary<Guid, string> authors = new();
+    private bool loading = true;
+    private bool isMember;
+    private bool accessDenied;
+    private string code = "";
+    private string? message;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CurrentUser.InitializeAsync();
+        if (CurrentUser.User is null)
+        {
+            NV.NavigateTo("/login");
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        accessDenied = false;
+        message = null;
+        posts = [];
+
+        var me = CurrentUser.User!.Id;
+        summary = await Chat.GetSingleThreadSummaryAsync(Id);
+
+        if (summary is not null)
+        {
+            var mine = await Chat.GetThreadsForUserAsync(me, me);
+            isMember = mine.Any(t => t.Id == Id);
+
+            try
+            {
+                // The service decides who may read. The page only reacts to the answer.
+                posts = await Chat.GetPostsAsync(me, Id);
+                authors = (await Users.GetAllAsync()).ToDictionary(u => u.Id, u => u.DisplayName);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                accessDenied = true;
+            }
+        }
+
+        loading = false;
+    }
+
+    private async Task JoinAsync()
+    {
+        try
+        {
+            await Chat.JoinThreadAsync(CurrentUser.User!.Id, Id, code);
+            code = "";
+            await LoadAsync();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or KeyNotFoundException)
+        {
+            message = ex.Message;
+        }
+    }
+
+    private string AuthorName(Guid authorId)
+        => authors.TryGetValue(authorId, out var name) ? name : "Unknown user";
+}
