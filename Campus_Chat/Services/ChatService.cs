@@ -2,7 +2,7 @@ using Campus_Chat.Models;
 
 namespace Campus_Chat.Services;
 
-public class ChatService(IChatStore store)
+public class ChatService(IChatStore store, UserService users)
 {
     /// <summary>Gets every thread name. The join code is never included.</summary>
     /// <returns>All threads, or an empty list when there are none.</returns>
@@ -16,6 +16,16 @@ public class ChatService(IChatStore store)
         }
         return summaries;
     }
+    
+    /// <summary>Gets the public summary of one thread.</summary>
+    /// <returns>The summary, or null when no thread has this ID.</returns>
+    public async Task<ThreadSummary?> GetSingleThreadSummaryAsync(Guid threadId)
+    {
+        var thread = await store.GetThreadByIdAsync(threadId);
+        return thread is null ? null : await ToSummaryAsync(thread);
+    }
+    
+    
     private async Task<ThreadSummary> ToSummaryAsync(ChatThread thread)
     {
         var count = await store.GetMembershipCountAsync(thread.Id);
@@ -86,4 +96,29 @@ public class ChatService(IChatStore store)
     }
     /// <summary>Removes the caller from a thread. Leaving a thread you are not in does nothing.</summary>
     public Task LeaveThreadAsync(Guid callerId, Guid threadId) => store.DeleteMembershipAsync(callerId, threadId);
+    
+    
+    /// <summary>Gets the posts of a thread that the caller is allowed to read.</summary>
+    /// <returns>Posts oldest first, or an empty list when the thread has none.</returns>
+    /// <exception cref="KeyNotFoundException">No thread has this ID.</exception>
+    /// <exception cref="UnauthorizedAccessException">The thread is private and the caller is neither a member nor an auditor.</exception>
+    public async Task<IReadOnlyList<Post>> GetPostsAsync(Guid callerId, Guid threadId)
+    {
+        var thread = await store.GetThreadByIdAsync(threadId)
+                     ?? throw new KeyNotFoundException("This thread does not exist.");
+
+        if (thread.IsPrivate)
+        {
+            var caller = await users.GetByIdAsync(callerId);
+            var isAuditor = caller?.IsAuditor == true;
+            var isMember = await store.GetMembershipAsync(callerId, threadId) is not null;
+
+            if (!isAuditor && !isMember)
+            {
+                throw new UnauthorizedAccessException("This thread needs a code. Join it from the thread list.");
+            }
+        }
+
+        return await store.GetPostsAsync(threadId);
+    }
 }
