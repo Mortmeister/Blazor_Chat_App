@@ -1,3 +1,111 @@
 @page "/threads"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject Campus_Chat.Services.ChatService Chat
+@inject NavigationManager NV
 
-<h1>All threads here</h1>
+<h1>All threads</h1>
+
+<input type="search" class="form-control mb-3" style="max-width:25rem"
+       placeholder="Search thread names"
+       @bind="searchText" @bind:event="oninput" />
+
+@if (allThreads.Count == 0)
+{
+    <p>There are no threads yet.</p>
+}
+else if (Visible.Count == 0)
+{
+    <p>No threads match "@searchText".</p>
+}
+else
+{
+    @foreach (var thread in Visible)
+    {
+        <div class="card mb-2" style="max-width:25rem">
+            <div class="card-body">
+                <a href="/thread/@thread.Id"><strong>@thread.Name</strong></a>
+                @if (thread.IsPrivate) { <span class="badge bg-secondary">private</span> }
+                <div>Members: @thread.MembershipCount</div>
+
+                @if (joinedIds.Contains(thread.Id))
+                {
+                    <button class="btn btn-outline-danger btn-sm mt-2" @onclick="() => LeaveAsync(thread)">Leave</button>
+                }
+                else
+                {
+                    @if (thread.IsPrivate)
+                    {
+                        <input class="form-control form-control-sm mt-2" placeholder="Join code"
+                               value="@GetCode(thread.Id)"
+                               @oninput="e => SetCode(thread.Id, e)" />
+                    }
+                    <button class="btn btn-outline-success btn-sm mt-2" @onclick="() => JoinAsync(thread)">Join</button>
+                }
+
+                @if (errors.TryGetValue(thread.Id, out var err))
+                {
+                    <p class="text-danger mb-0 mt-2">@err</p>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<ThreadSummary> allThreads = [];
+    private HashSet<Guid> joinedIds = new();
+    private readonly Dictionary<Guid, string> codes = new();
+    private readonly Dictionary<Guid, string> errors = new();
+    private string searchText = "";
+
+    // Filtering is view state, so it lives in the page. The data still comes from the service.
+    private List<ThreadSummary> Visible =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? allThreads.ToList()
+            : allThreads.Where(t => t.Name.Contains(searchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CurrentUser.InitializeAsync();
+        if (CurrentUser.User is null)
+        {
+            NV.NavigateTo("/login");
+            return;
+        }
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var me = CurrentUser.User!.Id;
+        allThreads = await Chat.GetThreadSummariesAsync();
+        var mine = await Chat.GetThreadsForUserAsync(me, me);
+        joinedIds = mine.Select(t => t.Id).ToHashSet();
+    }
+
+    private string GetCode(Guid threadId) => codes.GetValueOrDefault(threadId, "");
+
+    private void SetCode(Guid threadId, ChangeEventArgs e) => codes[threadId] = e.Value?.ToString() ?? "";
+
+    private async Task JoinAsync(ThreadSummary thread)
+    {
+        errors.Remove(thread.Id);
+        try
+        {
+            await Chat.JoinThreadAsync(CurrentUser.User!.Id, thread.Id, GetCode(thread.Id));
+            codes.Remove(thread.Id);
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or KeyNotFoundException)
+        {
+            errors[thread.Id] = ex.Message;
+        }
+    }
+
+    private async Task LeaveAsync(ThreadSummary thread)
+    {
+        await Chat.LeaveThreadAsync(CurrentUser.User!.Id, thread.Id);
+        await ReloadAsync();
+    }
+}
