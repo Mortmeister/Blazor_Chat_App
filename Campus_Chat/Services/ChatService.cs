@@ -44,13 +44,19 @@ public class ChatService(IChatStore store, UserService users)
             throw new UnauthorizedAccessException("Join this thread with its code before you post.");
         }
 
+        
+       
+        
+        
         if (parentPostId is not null)
         {
             var existing = await store.GetPostsAsync(threadId);
-            if (existing.All(p => p.Id != parentPostId))
+            if (existing.All(p => p.Id != parentPostId || p.IsDeleted))
             {
                 throw new KeyNotFoundException("The post you are replying to no longer exists.");
             }
+            
+            
         }
 
         var post = new Post
@@ -170,4 +176,34 @@ public class ChatService(IChatStore store, UserService users)
 
         return await store.GetPostsAsync(threadId);
     }
+    
+    /// <summary>Deletes one of the caller's own posts.</summary>
+    /// <remarks>A post with replies is kept as an empty "deleted" post so the replies stay attached. A post without replies is removed.
+    /// Deleting a post that is already deleted does nothing.</remarks>
+    /// <exception cref="KeyNotFoundException">No post with this ID exists in this thread.</exception>
+    /// <exception cref="UnauthorizedAccessException">The post belongs to somebody else.</exception>
+    public async Task DeletePostAsync(Guid callerId, Guid threadId, Guid postId)
+    {
+        var all = await store.GetPostsAsync(threadId);
+        var post = all.FirstOrDefault(p => p.Id == postId)
+                   ?? throw new KeyNotFoundException("This post does not exist.");
+
+        if (post.IsDeleted) return;
+
+        // Checked here, not just by hiding the button. Not even the audit role may delete other people's posts.
+        if (post.AuthorId != callerId)
+        {
+            throw new UnauthorizedAccessException("You can only delete your own posts.");
+        }
+
+        if (all.Any(p => p.ParentPostId == postId))
+        {
+            await store.SavePostAsync(post with { Text = "", AuthorId = Guid.Empty, IsDeleted = true });
+        }
+        else
+        {
+            await store.DeletePostAsync(postId);
+        }
+    }
+    
 }

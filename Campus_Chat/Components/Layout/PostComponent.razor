@@ -1,18 +1,24 @@
 @using Campus_Chat.Models
 
 <div class="border rounded p-2 mb-2">
-    <strong>@AuthorName</strong>
-    <small class="text-muted">@Post.Time.LocalDateTime.ToString("g")</small>
-    <div>@Post.Text</div>
-
-    @if (CanReply)
+    @if (Post.IsDeleted)
     {
-        <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => OnReply.InvokeAsync(Post.Id)">Reply</button>
+        <em class="text-muted">Deleted post</em>
     }
-
-    @if (CanDelete)
+    else
     {
-        <button class="btn btn-link btn-sm p-0 text-danger" @onclick="() => OnDelete.InvokeAsync(Post.Id)">Delete</button>
+        <strong>@AuthorName</strong>
+        <small class="text-muted">@Post.Time.LocalDateTime.ToString("g")</small>
+        <div>@Post.Text</div>
+
+        @if (CanReply)
+        {
+            <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => OnReply.InvokeAsync(Post.Id)">Reply</button>
+        }
+        @if (CanDelete)
+        {
+            <button class="btn btn-link btn-sm p-0 text-danger" @onclick="() => OnDelete.InvokeAsync(Post.Id)">Delete</button>
+        }
     }
 </div>
 
