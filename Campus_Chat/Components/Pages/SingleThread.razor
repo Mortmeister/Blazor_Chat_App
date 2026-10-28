@@ -3,6 +3,7 @@
 @inject Campus_Chat.Services.CurrentUserService CurrentUser
 @inject Campus_Chat.Services.UserService Users
 @inject Campus_Chat.Services.ChatService Chat
+@inject IJSRuntime JS
 
 
 @if (loading)
@@ -124,7 +125,10 @@ else
                            AuthorName="@AuthorName(post.AuthorId)"
                            CanDelete="@(CurrentUser.User is not null && post.AuthorId == CurrentUser.User.Id)"
                            CanReply="@(CurrentUser.User is not null)"
-                           OnReply="StartReply" />
+                           OnReply="StartReply" 
+                           OnDelete="HandleDelete"
+                           />
+            
 
             @foreach (var reply in posts.Where(r => r.ParentPostId == post.Id))
             {
@@ -203,6 +207,27 @@ else
         catch (Exception ex) when (ex is UnauthorizedAccessException or KeyNotFoundException)
         {
             message = ex.Message;
+        }
+    }
+    
+    private async Task HandleDelete(Guid postId)
+    {
+        postError = null;
+        
+        var text = "Delete this post?";
+
+        if (!await JS.InvokeAsync<bool>("confirm", text)) return;
+        
+        
+        try
+        {
+            await Chat.DeletePostAsync(CurrentUser.User!.Id, Id, postId);
+            if (replyToId == postId) replyToId = null;   // don't keep replying to something that's gone
+            posts = await Chat.GetPostsAsync(CurrentUser.User.Id, Id);
+        }
+        catch (Exception ex) when (ex is KeyNotFoundException or UnauthorizedAccessException)
+        {
+            postError = ex.Message;
         }
     }
 
