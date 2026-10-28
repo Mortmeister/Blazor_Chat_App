@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Components;
+
 namespace Campus_Chat.Services;
 
 using Campus_Chat.Models;
@@ -5,7 +7,7 @@ using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 
 /// <summary>Holds who is signed in for one browser tab (one circuit).</summary>
-public class CurrentUserService(ProtectedSessionStorage storage, UserService users)
+public class CurrentUserService(ProtectedSessionStorage storage, UserService users, NavigationManager nav)
 {
     private const string Key = "currentUserId";
     private bool Loaded;
@@ -39,6 +41,18 @@ public class CurrentUserService(ProtectedSessionStorage storage, UserService use
         NotifyStateChanged();
     }
 
+    
+    /// <summary>Makes sure somebody is signed in. Otherwise sends the browser to the login page.</summary>
+    /// <returns>True when a user is signed in. False when the caller should stop, because a redirect has started.</returns>
+    public async Task<bool> EnsureSignedInAsync()
+    {
+        await InitializeAsync();
+        if (User is not null) return true;
+
+        nav.NavigateTo("/login");
+        return false;
+    }
+    
     public async Task SignOutUser()
     {
         User = null;

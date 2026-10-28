@@ -17,6 +17,55 @@ public class ChatService(IChatStore store, UserService users)
         return summaries;
     }
     
+    /// <summary>Writes a new post, or a reply when parentPostId is given.</summary>
+    /// <returns>The saved post, with its author and time set by the service.</returns>
+    /// <exception cref="ArgumentException">The text is empty or too long.</exception>
+    /// <exception cref="KeyNotFoundException">The thread, or the post being replied to, does not exist.</exception>
+    /// <exception cref="UnauthorizedAccessException">The thread is private and the caller is not a member.</exception>
+    public async Task<Post> AddPostAsync(Guid callerId, Guid threadId, string text, Guid? parentPostId = null)
+    {
+        var clean = text?.Trim() ?? "";
+        if (clean.Length == 0)
+        {
+            throw new ArgumentException("A post can't be empty.");
+        }
+        if (clean.Length > 2000)
+        {
+            throw new ArgumentException("A post can be at most 2000 characters.");
+        }
+
+        var thread = await store.GetThreadByIdAsync(threadId)
+                     ?? throw new KeyNotFoundException("This thread does not exist.");
+
+        // Anyone may post in a public thread. A private thread needs membership.
+        // The audit role reads private threads but does not write in them.
+        if (thread.IsPrivate && await store.GetMembershipAsync(callerId, threadId) is null)
+        {
+            throw new UnauthorizedAccessException("Join this thread with its code before you post.");
+        }
+
+        if (parentPostId is not null)
+        {
+            var existing = await store.GetPostsAsync(threadId);
+            if (existing.All(p => p.Id != parentPostId))
+            {
+                throw new KeyNotFoundException("The post you are replying to no longer exists.");
+            }
+        }
+
+        var post = new Post
+        {
+            ThreadId = threadId,
+            AuthorId = callerId,   // from the caller, never from the page's form
+            Text = clean,
+            ParentPostId = parentPostId
+            // Id and Time are set by the model defaults
+        };
+
+        await store.SavePostAsync(post);
+        return post;
+    }
+    
     /// <summary>Gets the public summary of one thread.</summary>
     /// <returns>The summary, or null when no thread has this ID.</returns>
     public async Task<ThreadSummary?> GetSingleThreadSummaryAsync(Guid threadId)

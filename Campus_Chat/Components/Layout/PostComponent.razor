@@ -5,7 +5,10 @@
     <small class="text-muted">@Post.Time.LocalDateTime.ToString("g")</small>
     <div>@Post.Text</div>
 
-    <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => OnReply.InvokeAsync(Post.Id)">Reply</button>
+    @if (CanReply)
+    {
+        <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => OnReply.InvokeAsync(Post.Id)">Reply</button>
+    }
 
     @if (CanDelete)
     {
@@ -28,4 +31,7 @@
 
     /// <summary>Raised with the post's ID when Delete is clicked. The parent decides what it means.</summary>
     [Parameter] public EventCallback<Guid> OnDelete { get; set; }
+    
+    /// <summary>Whether to show the reply button. Visitors who are not signed in can't reply.</summary>
+    [Parameter] public bool CanReply { get; set; } = true;
 }

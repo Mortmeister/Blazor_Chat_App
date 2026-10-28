@@ -3,7 +3,6 @@
 @inject Campus_Chat.Services.CurrentUserService CurrentUser
 @inject Campus_Chat.Services.UserService Users
 @inject Campus_Chat.Services.ChatService Chat
-@inject NavigationManager NV
 
 
 @if (loading)
@@ -18,9 +17,16 @@ else if (summary is null)
 else
 {
     <h1>@summary.Name</h1>
-    @if (summary.IsPrivate) { <span class="badge bg-secondary">private</span> }
+    @if (summary.IsPrivate)
+    {
+        <span class="badge bg-secondary">private</span>
+    }
 
-    @if (!isMember)
+    @if (CurrentUser.User is null)
+    {
+        <p class="my-3"><a href="/login">Log in</a> to join this thread and write posts.</p>
+    }
+    else if (!isMember)
     {
         <div class="my-3">
             @if (summary.IsPrivate)
@@ -39,8 +45,11 @@ else
 
     @if (accessDenied)
     {
-        <p>This is a private thread. Enter the code above to read its posts.</p>
+        <p>This is a private thread. @(CurrentUser.User is null ? "Log in, then" : "Enter the code above and") join to read its posts.</p>
     }
+
+
+
     else if (posts.Count == 0)
     {
         <p>No posts yet!</p>
@@ -49,22 +58,33 @@ else
     {
         @foreach (var post in posts.Where(p => p.ParentPostId is null))
         {
-            <PostComponent Post="post"
-                           AuthorName="@AuthorName(post.AuthorId)"
-                           CanDelete="@(post.AuthorId == CurrentUser.User!.Id)"
-                           OnReply="StartReply"/>
-
-            @foreach (var reply in posts.Where(r => r.ParentPostId == post.Id))
-            {
-                <div class="ms-4">
-                    <PostComponent Post="reply"
-                                   AuthorName="@AuthorName(reply.AuthorId)"
-                                   CanDelete="@(reply.AuthorId == CurrentUser.User!.Id)"
-                                   OnReply="StartReply"/>
-                </div>
-            }
+            @RenderPost(post, 0)
         }
     }
+
+    @if (!accessDenied && CurrentUser.User is not null)
+    {
+        <div class="border rounded p-3 mb-3">
+            @if (replyToId is not null)
+            {
+                <div class="mb-2">
+                    Replying to: <em>@ReplyPreview</em>
+                    <button class="btn btn-link btn-sm" @onclick="CancelReply">Cancel reply</button>
+                </div>
+            }
+
+            <textarea class="form-control mb-2" rows="3" placeholder="Write a post"
+                  @bind="newText" @bind:event="oninput"></textarea>
+
+            @if (postError is not null)
+            {
+                <p class="text-danger">@postError</p>
+            }
+
+            <button class="btn btn-primary btn-sm" @onclick="SendAsync">Post</button>
+        </div>
+    }
+}
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -81,14 +101,57 @@ else
 
     private void StartReply(Guid postId) => replyToId = postId;
     
+    private string newText = "";
+    private string? postError;
+
+    private string ReplyPreview
+    {
+        get
+        {
+            var target = posts.FirstOrDefault(p => p.Id == replyToId);
+            if (target is null) return "";
+            return target.Text.Length > 60 ? target.Text[..60] + "..." : target.Text;
+        }
+    }
+
+    private void CancelReply() => replyToId = null;
+    
+    // Draws a post, then its replies, then their replies, and so on.
+    private RenderFragment RenderPost(Post post, int depth) => __builder =>
+    {
+        <div class="@(depth is > 0 and < 4 ? "ms-4" : "")">
+            <PostComponent Post="post"
+                           AuthorName="@AuthorName(post.AuthorId)"
+                           CanDelete="@(CurrentUser.User is not null && post.AuthorId == CurrentUser.User.Id)"
+                           CanReply="@(CurrentUser.User is not null)"
+                           OnReply="StartReply" />
+
+            @foreach (var reply in posts.Where(r => r.ParentPostId == post.Id))
+            {
+                @RenderPost(reply, depth + 1)
+            }
+        </div>
+    };
+
+    private async Task SendAsync()
+    {
+        postError = null;
+        try
+        {
+            await Chat.AddPostAsync(CurrentUser.User!.Id, Id, newText, replyToId);
+            newText = "";
+            replyToId = null;
+            posts = await Chat.GetPostsAsync(CurrentUser.User.Id, Id);   // reload posts only, no full-page flicker
+        }
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException or UnauthorizedAccessException)
+        {
+            postError = ex.Message;   // these messages are written for users to read
+        }
+    }
+    
     protected override async Task OnParametersSetAsync()
     {
-        await CurrentUser.InitializeAsync();
-        if (CurrentUser.User is null)
-        {
-            NV.NavigateTo("/login");
-            return;
-        }
+        await CurrentUser.InitializeAsync();   // no redirect: visitors may read public threads
         await LoadAsync();
     }
 
@@ -99,17 +162,24 @@ else
         message = null;
         posts = [];
 
-        var me = CurrentUser.User!.Id;
+        // Guid.Empty means "nobody". The service then treats the caller as a plain visitor.
+        var me = CurrentUser.User?.Id ?? Guid.Empty;
         summary = await Chat.GetSingleThreadSummaryAsync(Id);
 
         if (summary is not null)
         {
-            var mine = await Chat.GetThreadsForUserAsync(me, me);
-            isMember = mine.Any(t => t.Id == Id);
+            if (CurrentUser.User is not null)
+            {
+                var mine = await Chat.GetThreadsForUserAsync(me, me);
+                isMember = mine.Any(t => t.Id == Id);
+            }
+            else
+            {
+                isMember = false;
+            }
 
             try
             {
-                // The service decides who may read. The page only reacts to the answer.
                 posts = await Chat.GetPostsAsync(me, Id);
                 authors = (await Users.GetAllAsync()).ToDictionary(u => u.Id, u => u.DisplayName);
             }
@@ -138,5 +208,4 @@ else
 
     private string AuthorName(Guid authorId)
         => authors.TryGetValue(authorId, out var name) ? name : "Unknown user";
-}
 }
