@@ -2,7 +2,7 @@
 @using Campus_Chat.Models
 @inject Campus_Chat.Services.CurrentUserService CurrentUser
 @inject Campus_Chat.Services.ChatService Chat
-@inject NavigationManager NV
+
 
 <h1>All threads</h1>
 
@@ -28,7 +28,11 @@ else
                 @if (thread.IsPrivate) { <span class="badge bg-secondary">private</span> }
                 <div>Members: @thread.MembershipCount</div>
 
-                @if (joinedIds.Contains(thread.Id))
+                @if (CurrentUser.User is null)
+                {
+                    <a href="/login" class="btn btn-outline-secondary btn-sm mt-2">Log in to join</a>
+                }
+                else if (joinedIds.Contains(thread.Id))
                 {
                     <button class="btn btn-outline-danger btn-sm mt-2" @onclick="() => LeaveAsync(thread)">Leave</button>
                 }
@@ -67,21 +71,23 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await CurrentUser.InitializeAsync();
-        if (CurrentUser.User is null)
-        {
-            NV.NavigateTo("/login");
-            return;
-        }
+        await CurrentUser.InitializeAsync();   // loads the user if there is one, never redirects
         await ReloadAsync();
     }
 
     private async Task ReloadAsync()
     {
-        var me = CurrentUser.User!.Id;
         allThreads = await Chat.GetThreadSummariesAsync();
-        var mine = await Chat.GetThreadsForUserAsync(me, me);
-        joinedIds = mine.Select(t => t.Id).ToHashSet();
+
+        if (CurrentUser.User is { } me)
+        {
+            var mine = await Chat.GetThreadsForUserAsync(me.Id, me.Id);
+            joinedIds = mine.Select(t => t.Id).ToHashSet();
+        }
+        else
+        {
+            joinedIds = new();
+        }
     }
 
     private string GetCode(Guid threadId) => codes.GetValueOrDefault(threadId, "");
