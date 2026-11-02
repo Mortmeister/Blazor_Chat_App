@@ -171,5 +171,88 @@ public class InMemoryChatStore : IChatStore
                Time = DateTimeOffset.UtcNow.AddHours(-4),
                ParentPostId = questionPrivate.Id
           });
+          
+          
+          directChats.Add(new DirectChat
+          {
+               Id = SeedIds.TestChat,
+               FirstUserId = SeedIds.Ola,      
+               SecondUserId = SeedIds.Kari
+          });
+
+          directMessages.Add(new DirectMessage
+          {
+               DirectChatId = SeedIds.TestChat,
+               SenderId = SeedIds.Ola,
+               Text = "Hi Kari, did you get the lecture notes?",
+               SentAt = DateTimeOffset.UtcNow.AddHours(-3)
+          });
+          directMessages.Add(new DirectMessage
+          {
+               DirectChatId = SeedIds.TestChat,
+               SenderId = SeedIds.Kari,
+               Text = "Yes, I'll send them over.",
+               SentAt = DateTimeOffset.UtcNow.AddHours(-2)
+          });
+     }
+     
+     
+     private readonly List<DirectChat> directChats = new();
+     private readonly List<DirectMessage> directMessages = new();
+
+     public Task<IReadOnlyList<DirectChat>> GetDirectChatsForUserAsync(Guid userId)
+     {
+          lock (gate)
+          {
+               var result = directChats.Where(c => c.FirstUserId == userId || c.SecondUserId == userId).ToList();
+               return Task.FromResult<IReadOnlyList<DirectChat>>(result);
+          }
+     }
+
+     public Task<DirectChat?> GetDirectChatAsync(Guid chatId)
+     {
+          lock (gate)
+          {
+               return Task.FromResult(directChats.FirstOrDefault(c => c.Id == chatId));
+          }
+     }
+
+     public Task<DirectChat?> FindDirectChatAsync(Guid firstUserId, Guid secondUserId)
+     {
+          lock (gate)
+          {
+               return Task.FromResult(directChats.FirstOrDefault(c =>
+                    (c.FirstUserId == firstUserId && c.SecondUserId == secondUserId) ||
+                    (c.FirstUserId == secondUserId && c.SecondUserId == firstUserId)));
+          }
+     }
+
+     public Task SaveDirectChatAsync(DirectChat chat)
+     {
+          lock (gate)
+          {
+               var index = directChats.FindIndex(c => c.Id == chat.Id);
+               if (index >= 0) directChats[index] = chat;
+               else directChats.Add(chat);
+          }
+          return Task.CompletedTask;
+     }
+
+     public Task<IReadOnlyList<DirectMessage>> GetDirectMessagesAsync(Guid chatId)
+     {
+          lock (gate)
+          {
+               var result = directMessages.Where(m => m.DirectChatId == chatId).OrderBy(m => m.SentAt).ToList();
+               return Task.FromResult<IReadOnlyList<DirectMessage>>(result);
+          }
+     }
+
+     public Task SaveDirectMessageAsync(DirectMessage message)
+     {
+          lock (gate)
+          {
+               directMessages.Add(message);
+          }
+          return Task.CompletedTask;
      }
 }

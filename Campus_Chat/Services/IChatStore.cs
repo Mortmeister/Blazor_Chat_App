@@ -20,4 +20,14 @@ public interface IChatStore
   Task<IReadOnlyList<Post>> GetPostsAsync(Guid threadId);
   Task SavePostAsync(Post post);
   Task DeletePostAsync(Guid id);
+  
+  
+  // Direct chats
+  Task<IReadOnlyList<DirectChat>> GetDirectChatsForUserAsync(Guid userId);
+  Task<DirectChat?> GetDirectChatAsync(Guid chatId);
+  Task<DirectChat?> FindDirectChatAsync(Guid firstUserId, Guid secondUserId);
+  Task SaveDirectChatAsync(DirectChat chat);
+  Task<IReadOnlyList<DirectMessage>> GetDirectMessagesAsync(Guid chatId);
+  Task SaveDirectMessageAsync(DirectMessage message);
+  
 }

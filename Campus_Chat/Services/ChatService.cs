@@ -206,4 +206,88 @@ public class ChatService(IChatStore store, UserService users)
         }
     }
     
+    /// <summary>Opens the direct chat between the caller and another user, creating it if it doesn't exist.</summary>
+/// <returns>The chat's ID. A chat between the same two people is always the same chat.</returns>
+/// <exception cref="ArgumentException">The caller tried to start a chat with themselves.</exception>
+/// <exception cref="KeyNotFoundException">The other user does not exist.</exception>
+public async Task<Guid> StartDirectChatAsync(Guid callerId, Guid otherUserId)
+{
+    if (callerId == otherUserId)
+    {
+        throw new ArgumentException("You can't start a chat with yourself.");
+    }
+    _ = await users.GetByIdAsync(otherUserId) ?? throw new KeyNotFoundException("This user does not exist.");
+
+    // Smaller ID first, so A-to-B and B-to-A are the same chat.
+    var (first, second) = callerId.CompareTo(otherUserId) < 0 ? (callerId, otherUserId) : (otherUserId, callerId);
+
+    var existing = await store.FindDirectChatAsync(first, second);
+    if (existing is not null) return existing.Id;
+
+    var chat = new DirectChat { FirstUserId = first, SecondUserId = second };
+    await store.SaveDirectChatAsync(chat);
+    return chat.Id;
+}
+
+/// <summary>Gets the caller's direct chats, newest activity first.</summary>
+/// <returns>The chats, or an empty list when the caller has none.</returns>
+public async Task<IReadOnlyList<DirectChatSummary>> GetMyDirectChatsAsync(Guid callerId)
+{
+    var chats = await store.GetDirectChatsForUserAsync(callerId);
+    var result = new List<DirectChatSummary>();
+
+    foreach (var chat in chats)
+    {
+        var otherId = chat.FirstUserId == callerId ? chat.SecondUserId : chat.FirstUserId;
+        var other = await users.GetByIdAsync(otherId);
+        var messages = await store.GetDirectMessagesAsync(chat.Id);
+        var last = messages.LastOrDefault();
+
+        result.Add(new DirectChatSummary(chat.Id, otherId, other?.DisplayName ?? "Unknown user",
+            last?.Text, last?.SentAt ?? chat.CreatedAt));
+    }
+
+    return result.OrderByDescending(c => c.LastActivity).ToList();
+}
+
+/// <summary>Gets the messages of one direct chat, oldest first.</summary>
+/// <returns>The messages, or an empty list when nothing has been sent yet.</returns>
+/// <exception cref="KeyNotFoundException">No chat has this ID.</exception>
+/// <exception cref="UnauthorizedAccessException">The caller is neither one of the two people nor an auditor.</exception>
+public async Task<IReadOnlyList<DirectMessage>> GetDirectMessagesAsync(Guid callerId, Guid chatId)
+{
+    var chat = await store.GetDirectChatAsync(chatId)
+        ?? throw new KeyNotFoundException("This chat does not exist.");
+
+    var isParticipant = chat.FirstUserId == callerId || chat.SecondUserId == callerId;
+    var isAuditor = (await users.GetByIdAsync(callerId))?.IsAuditor == true;
+
+    if (!isParticipant && !isAuditor)
+    {
+        throw new UnauthorizedAccessException("This is a private chat.");
+    }
+
+    return await store.GetDirectMessagesAsync(chatId);
+}
+
+/// <summary>Sends a message in a direct chat. Only the two people in the chat can send.</summary>
+/// <exception cref="ArgumentException">The message is empty or too long.</exception>
+/// <exception cref="KeyNotFoundException">No chat has this ID.</exception>
+/// <exception cref="UnauthorizedAccessException">The caller is not one of the two people.</exception>
+public async Task SendDirectMessageAsync(Guid callerId, Guid chatId, string text)
+{
+    var clean = text?.Trim() ?? "";
+    if (clean.Length == 0) throw new ArgumentException("A message can't be empty.");
+    if (clean.Length > 2000) throw new ArgumentException("A message can be at most 2000 characters.");
+
+    var chat = await store.GetDirectChatAsync(chatId)
+        ?? throw new KeyNotFoundException("This chat does not exist.");
+
+    if (chat.FirstUserId != callerId && chat.SecondUserId != callerId)
+    {
+        throw new UnauthorizedAccessException("This is a private chat.");
+    }
+
+    await store.SaveDirectMessageAsync(new DirectMessage { DirectChatId = chatId, SenderId = callerId, Text = clean });
+}
 }
