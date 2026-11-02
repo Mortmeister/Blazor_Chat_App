@@ -10,4 +10,6 @@ public static class SeedIds
 
     public static readonly Guid GeneralThread = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid PrivateThread = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    
+    public static readonly Guid TestChat = Guid.Parse("aaaaaaaa-bbbb-bbbb-bbbb-aaaaaaaabbbb");
 }

@@ -1,3 +1,77 @@
 @page "/chats"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.ChatService Chat
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject NavigationManager NV
 
-<h1>My chats here</h1>
+<h1>My chats</h1>
+
+<div class="d-flex gap-2 mb-3" style="max-width:25rem">
+    <select class="form-select" @bind="selectedUserId">
+        @foreach (var u in others)
+        {
+            <option value="@u.Id">@u.DisplayName</option>
+        }
+    </select>
+    <button class="btn btn-primary" @onclick="StartAsync">Start chat</button>
+</div>
+
+@if (error is not null)
+{
+    <p class="text-danger">@error</p>
+}
+
+@if (chats.Count == 0)
+{
+    <p>You have no chats yet. Pick someone above to start one.</p>
+}
+else
+{
+    <div class="list-group" style="max-width:35rem">
+        @foreach (var chat in chats)
+        {
+            <a class="list-group-item list-group-item-action" href="/chat/@chat.ChatId">
+                <div class="d-flex justify-content-between">
+                    <strong>@chat.OtherName</strong>
+                    <small class="text-muted">@chat.LastActivity.LocalDateTime.ToString("g")</small>
+                </div>
+                <div class="text-muted">@(chat.LastMessage ?? "No messages yet")</div>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<DirectChatSummary> chats = [];
+    private List<User> others = new();
+    private Guid selectedUserId;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await CurrentUser.EnsureSignedInAsync()) return;
+
+        var me = CurrentUser.User!.Id;
+        chats = await Chat.GetMyDirectChatsAsync(me);
+
+        // You can't chat with yourself, so leave yourself out of the picker.
+        others = (await Users.GetAllAsync()).Where(u => u.Id != me).OrderBy(u => u.DisplayName).ToList();
+        selectedUserId = others.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    private async Task StartAsync()
+    {
+        error = null;
+        try
+        {
+            // The service finds the existing chat or creates one, so there are no duplicates.
+            var chatId = await Chat.StartDirectChatAsync(CurrentUser.User!.Id, selectedUserId);
+            NV.NavigateTo($"/chat/{chatId}");
+        }
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException)
+        {
+            error = ex.Message;
+        }
+    }
+}
