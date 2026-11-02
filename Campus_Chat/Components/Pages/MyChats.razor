@@ -4,6 +4,7 @@
 @inject Campus_Chat.Services.UserService Users
 @inject Campus_Chat.Services.CurrentUserService CurrentUser
 @inject NavigationManager NV
+@implements IDisposable
 
 <h1>My chats</h1>
 
@@ -51,6 +52,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         if (!await CurrentUser.EnsureSignedInAsync()) return;
+        
+        Chat.Changed += OnChanged;
 
         var me = CurrentUser.User!.Id;
         chats = await Chat.GetMyDirectChatsAsync(me);
@@ -60,6 +63,25 @@ else
         selectedUserId = others.FirstOrDefault()?.Id ?? Guid.Empty;
     }
 
+    
+    private void OnChanged(ChatChange change)
+    {
+        if (change.Kind != ChangeKind.Direct) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                chats = await Chat.GetMyDirectChatsAsync(CurrentUser.User!.Id);
+                StateHasChanged();
+            }
+            catch (Exception) { }
+        });
+    }
+
+    public void Dispose() => Chat.Changed -= OnChanged;
+    
+    
     private async Task StartAsync()
     {
         error = null;

@@ -4,6 +4,24 @@ namespace Campus_Chat.Services;
 
 public class ChatService(IChatStore store, UserService users)
 {
+    
+    /// <summary>Raised after shared chat data has been saved, so open pages can refresh.</summary>
+    public event Action<ChatChange>? Changed;
+
+// Calls each listener on its own. A closed tab that throws must not stop the other tabs from updating.
+    private void Raise(ChatChange change)
+    {
+        var handlers = Changed;
+        if (handlers is null) return;
+
+        foreach (var handler in handlers.GetInvocationList().Cast<Action<ChatChange>>())
+        {
+            try { handler(change); }
+            catch (Exception) { /* a dead circuit; its Dispose will unsubscribe it */ }
+        }
+    }
+    
+    
     /// <summary>Gets every thread name. The join code is never included.</summary>
     /// <returns>All threads, or an empty list when there are none.</returns>
     public async Task<IReadOnlyList<ThreadSummary>> GetThreadSummariesAsync()
@@ -69,7 +87,9 @@ public class ChatService(IChatStore store, UserService users)
         };
 
         await store.SavePostAsync(post);
+        Raise(new ChatChange(ChangeKind.Post, threadId));
         return post;
+        
     }
     
     /// <summary>Gets the public summary of one thread.</summary>
@@ -203,6 +223,7 @@ public class ChatService(IChatStore store, UserService users)
         else
         {
             await store.DeletePostAsync(postId);
+            Raise(new ChatChange(ChangeKind.Post, threadId));
         }
     }
     
@@ -226,6 +247,7 @@ public async Task<Guid> StartDirectChatAsync(Guid callerId, Guid otherUserId)
 
     var chat = new DirectChat { FirstUserId = first, SecondUserId = second };
     await store.SaveDirectChatAsync(chat);
+    Raise(new ChatChange(ChangeKind.Direct, chat.Id));
     return chat.Id;
 }
 
@@ -289,5 +311,6 @@ public async Task SendDirectMessageAsync(Guid callerId, Guid chatId, string text
     }
 
     await store.SaveDirectMessageAsync(new DirectMessage { DirectChatId = chatId, SenderId = callerId, Text = clean });
+    Raise(new ChatChange(ChangeKind.Direct, chatId));
 }
 }

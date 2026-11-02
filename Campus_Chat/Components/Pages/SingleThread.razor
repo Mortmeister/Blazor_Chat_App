@@ -4,6 +4,7 @@
 @inject Campus_Chat.Services.UserService Users
 @inject Campus_Chat.Services.ChatService Chat
 @inject IJSRuntime JS
+@implements IDisposable
 
 
 @if (loading)
@@ -159,6 +160,41 @@ else
         await LoadAsync();
     }
 
+    protected override void OnInitialized() => Chat.Changed += OnChanged;   // subscribe
+
+    private void OnChanged(ChatChange change)
+    {
+        if (change.Kind != ChangeKind.Post || change.ScopeId != Id) return;   // not my thread
+
+        // The event arrives on another user's thread, so we must hop onto this circuit's thread.
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await ReloadPostsAsync();
+                StateHasChanged();
+            }
+            catch (Exception) { /* circuit is closing */ }
+        });
+    }
+    
+    private async Task ReloadPostsAsync()
+    {
+        var me = CurrentUser.User?.Id ?? Guid.Empty;
+        try
+        {
+            posts = await Chat.GetPostsAsync(me, Id);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Still not allowed to read: leave the page as it is.
+        }
+    }
+
+    public void Dispose() => Chat.Changed -= OnChanged; 
+    
+    
+    
     private async Task LoadAsync()
     {
         loading = true;
