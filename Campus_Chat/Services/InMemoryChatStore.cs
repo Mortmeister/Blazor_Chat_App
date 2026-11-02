@@ -136,6 +136,8 @@ public class InMemoryChatStore : IChatStore
           memberships.Add(new ThreadMembership{ThreadId = SeedIds.GeneralThread, UserId = SeedIds.Ola});
           memberships.Add(new ThreadMembership{ThreadId = SeedIds.PrivateThread, UserId = SeedIds.Ola});
           
+      
+          
           var question = new Post
           {
                ThreadId = SeedIds.GeneralThread, 
