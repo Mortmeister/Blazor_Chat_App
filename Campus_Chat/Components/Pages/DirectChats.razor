@@ -1,0 +1,128 @@
+@page "/chat/{Id:guid}"
+@using Campus_Chat.Models
+@inject Campus_Chat.Services.ChatService ChatSvc
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject NavigationManager NV
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (notFound)
+{
+    <p>This chat doesn't exist.</p>
+    <a href="/chats">Back to my chats</a>
+}
+else if (denied)
+{
+    <p>This is a private chat between two other people.</p>
+    <a href="/chats">Back to my chats</a>
+}
+else
+{
+    <h1>@title</h1>
+    @if (!canSend)
+    {
+        <p class="text-muted">You are reading this chat as an auditor. You can't send messages in it.</p>
+    }
+
+    @if (messages.Count == 0)
+    {
+        <p>No messages yet. Say hello!</p>
+    }
+    else
+    {
+        <div style="max-width:35rem">
+            @foreach (var m in messages)
+            {
+                var mine = m.SenderId == CurrentUser.User!.Id;
+                <div class="d-flex @(mine ? "justify-content-end" : "justify-content-start") mb-2">
+                    <div class="rounded p-2 @(mine ? "bg-primary text-white" : "bg-light border")" style="max-width:80%">
+                        <small class="d-block">@SenderName(m.SenderId) · @m.SentAt.LocalDateTime.ToString("g")</small>
+                        @m.Text
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (canSend)
+    {
+        <div class="mt-3" style="max-width:35rem">
+            <textarea class="form-control mb-2" rows="2" placeholder="Write a message"
+                      @bind="text" @bind:event="oninput"></textarea>
+            @if (error is not null)
+            {
+                <p class="text-danger">@error</p>
+            }
+            <button class="btn btn-primary btn-sm" @onclick="SendAsync">Send</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private IReadOnlyList<DirectMessage> messages = [];
+    private Dictionary<Guid, string> names = new();
+    private bool loading = true;
+    private bool notFound;
+    private bool denied;
+    private bool canSend;
+    private string title = "Chat";
+    private string text = "";
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!await CurrentUser.EnsureSignedInAsync()) return;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        notFound = denied = canSend = false;
+        var me = CurrentUser.User!.Id;
+
+        try
+        {
+            // The service decides who may read. The page only reacts to the answer.
+            messages = await ChatSvc.GetDirectMessagesAsync(me, Id);
+            names = (await Users.GetAllAsync()).ToDictionary(u => u.Id, u => u.DisplayName);
+
+            // Only the two people in the chat have it in their own list, so this also tells us who may send.
+            var mine = (await ChatSvc.GetMyDirectChatsAsync(me)).FirstOrDefault(c => c.ChatId == Id);
+            canSend = mine is not null;
+            title = mine is not null ? $"Chat with {mine.OtherName}" : "Chat (audit view)";
+        }
+        catch (KeyNotFoundException)
+        {
+            notFound = true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            denied = true;
+        }
+
+        loading = false;
+    }
+
+    private async Task SendAsync()
+    {
+        error = null;
+        try
+        {
+            await ChatSvc.SendDirectMessageAsync(CurrentUser.User!.Id, Id, text);
+            text = "";
+            messages = await ChatSvc.GetDirectMessagesAsync(CurrentUser.User.Id, Id);
+        }
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException or UnauthorizedAccessException)
+        {
+            error = ex.Message;   // written for users to read
+        }
+    }
+
+    private string SenderName(Guid id) => names.TryGetValue(id, out var n) ? n : "Unknown user";
+}
