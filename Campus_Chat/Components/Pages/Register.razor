@@ -1,0 +1,59 @@
+@page "/register"
+@inject Campus_Chat.Services.UserService Users
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject NavigationManager NV
+
+<h1>Create your profile</h1>
+
+<div style="max-width:25rem">
+    <div class="mb-2">
+        <label>Display name</label>
+        <input class="form-control" @bind="name" />
+    </div>
+    <div class="mb-2">
+        <label>About me</label>
+        <textarea class="form-control" @bind="note"></textarea>
+    </div>
+    <div class="mb-2">
+        <label>Avatar colour</label>
+        <input type="color" class="form-control form-control-color" @bind="colour" />
+    </div>
+    <div class="mb-2">
+        <label>Study year</label>
+        <select class="form-select" @bind="year">
+            @for (var y = 1; y <= 5; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </div>
+
+    @if (error is not null)
+    {
+        <p class="text-danger">@error</p>
+    }
+
+    <button class="btn btn-success" @onclick="CreateAsync">Create profile</button>
+    <a href="/login" class="btn btn-link">Back to login</a>
+</div>
+
+@code {
+    private string name = "", note = "", colour = "#6c757d";
+    private int year = 1;
+    private string? error;
+
+    private async Task CreateAsync()
+    {
+        error = null;
+        try
+        {
+            var user = await Users.CreateProfileAsync(name, note, colour, year);
+            await CurrentUser.SignInUser(user.Id);
+            NV.NavigateTo($"/profile/{user.Id}");
+        }
+        catch (ArgumentException ex)
+        {
+            error = ex.Message;   // written for users to read
+        }
+    }
+}
