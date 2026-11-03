@@ -21,6 +21,34 @@ public class ChatService(IChatStore store, UserService users)
         }
     }
     
+    /// <summary>Counts unread posts for each thread the caller has joined.</summary>
+    /// <remarks>Posts the caller wrote never count. Threads the caller has not joined are not in the result.</remarks>
+    /// <returns>A thread ID to unread count map. Empty when the caller has joined nothing.</returns>
+    public async Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsAsync(Guid callerId)
+    {
+        var memberships = await store.GetMembershipsForUserAsync(callerId);
+        var result = new Dictionary<Guid, int>();
+
+        foreach (var m in memberships)
+        {
+            var posts = await store.GetPostsAsync(m.ThreadId);
+            result[m.ThreadId] = posts.Count(p => p.Time > m.LastReadAt && p.AuthorId != callerId);
+        }
+
+        return result;
+    }
+
+    /// <summary>Marks a thread as read for the caller, so its unread count goes to zero.</summary>
+    /// <remarks>Does nothing when the caller has not joined the thread.</remarks>
+    public async Task MarkThreadReadAsync(Guid callerId, Guid threadId)
+    {
+        var membership = await store.GetMembershipAsync(callerId, threadId);
+        if (membership is null) return;
+
+        await store.SaveMembershipAsync(membership with { LastReadAt = DateTimeOffset.UtcNow });
+        Raise(new ChatChange(ChangeKind.Read, threadId));
+    }
+    
     
     /// <summary>Gets every thread name. The join code is never included.</summary>
     /// <returns>All threads, or an empty list when there are none.</returns>

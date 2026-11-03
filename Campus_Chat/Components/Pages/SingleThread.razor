@@ -189,6 +189,11 @@ else
         {
             // Still not allowed to read: leave the page as it is.
         }
+        
+        if (CurrentUser.User is not null && isMember)
+        {
+            await Chat.MarkThreadReadAsync(me, Id);
+        }
     }
 
     public void Dispose() => Chat.Changed -= OnChanged; 
@@ -227,6 +232,12 @@ else
             {
                 accessDenied = true;
             }
+            
+            if (CurrentUser.User is not null && isMember && !accessDenied)
+            {
+                await Chat.MarkThreadReadAsync(me, Id);
+            }
+            
         }
 
         loading = false;

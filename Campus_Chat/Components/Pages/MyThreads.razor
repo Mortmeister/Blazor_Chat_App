@@ -1,3 +1,70 @@
 @page "/myThreads"
+@using Campus_Chat.Models
+@implements IDisposable
+@inject Campus_Chat.Services.ChatService Chat
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
 
-<h1>My threads here</h1>
+<h1>My threads</h1>
+
+@if (threads.Count == 0)
+{
+    <p>You haven't joined any threads yet. <a href="/threads">Browse all threads</a>.</p>
+}
+else
+{
+    <div class="list-group" style="max-width:30rem">
+        @foreach (var t in threads)
+        {
+            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+               href="/thread/@t.Id">
+                <span>
+                    @t.Name
+                    @if (t.IsPrivate) { <span class="badge bg-secondary">private</span> }
+                </span>
+                @if (Unread(t.Id) > 0)
+                {
+                    <span class="badge bg-danger rounded-pill">@Unread(t.Id)</span>
+                }
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<ThreadSummary> threads = [];
+    private IReadOnlyDictionary<Guid, int> counts = new Dictionary<Guid, int>();
+
+    private int Unread(Guid threadId) => counts.GetValueOrDefault(threadId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await CurrentUser.EnsureSignedInAsync()) return;
+
+        Chat.Changed += OnChanged;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var me = CurrentUser.User!.Id;
+        threads = await Chat.GetThreadsForUserAsync(me, me);
+        counts = await Chat.GetUnreadCountsAsync(me);
+    }
+
+    private void OnChanged(ChatChange change)
+    {
+        if (change.Kind is not (ChangeKind.Post or ChangeKind.Read)) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await ReloadAsync();
+                StateHasChanged();
+            }
+            catch (Exception) { /* circuit closing */ }
+        });
+    }
+
+    public void Dispose() => Chat.Changed -= OnChanged;
+}

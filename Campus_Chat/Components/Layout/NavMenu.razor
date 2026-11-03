@@ -1,4 +1,6 @@
 ﻿@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject Campus_Chat.Services.ChatService Chat
+@using Campus_Chat.Models
 @implements IDisposable
 
 
@@ -30,6 +32,10 @@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/myThreads" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> My Threads
+                @if (totalUnread > 0)
+                {
+                    <span class="badge bg-danger ms-2">@totalUnread</span>
+                }
             </NavLink>
         </div>
         <div class="nav-item px-3">
@@ -59,28 +65,44 @@
 @code{
 
     private string userMessage = "";
+    private int totalUnread;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await CurrentUser.InitializeAsync();
-            StateHasChanged();
-        }
-    }
-    
     protected override void OnInitialized()
     {
         CurrentUser.OnChange += HandleCurrentUserChanged;
+        Chat.Changed += HandleChatChanged;
     }
 
-    private void HandleCurrentUserChanged()
+    private async Task RefreshUnreadAsync()
     {
-        _ = InvokeAsync(StateHasChanged);
+        totalUnread = CurrentUser.User is null
+            ? 0
+            : (await Chat.GetUnreadCountsAsync(CurrentUser.User.Id)).Values.Sum();
     }
-    
+
+    private void HandleCurrentUserChanged() => Refresh();
+
+    private void HandleChatChanged(ChatChange change)
+    {
+        if (change.Kind is ChangeKind.Post or ChangeKind.Read) Refresh();
+    }
+
+    private void Refresh()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await RefreshUnreadAsync();
+                StateHasChanged();
+            }
+            catch (Exception) { /* circuit closing */ }
+        });
+    }
+
     public void Dispose()
     {
         CurrentUser.OnChange -= HandleCurrentUserChanged;
+        Chat.Changed -= HandleChatChanged;
     }
 }
