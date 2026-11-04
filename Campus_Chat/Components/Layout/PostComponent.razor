@@ -7,7 +7,7 @@
     }
     else
     {
-        <strong>@AuthorName</strong>
+        <a href="/profile/@Post.AuthorId" class="fw-bold text-decoration-none">@AuthorName</a>
         <small class="text-muted">@Post.Time.LocalDateTime.ToString("g")</small>
         <div>@Post.Text</div>
 

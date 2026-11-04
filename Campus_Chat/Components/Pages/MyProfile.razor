@@ -34,6 +34,11 @@ else
         <button class="btn btn-outline-primary btn-sm" @onclick="StartEdit">Edit profile</button>
         <button class="btn btn-outline-secondary btn-sm" @onclick="HandleLogout">Log out</button>
     }
+    
+    @if (!isOwner)
+    {
+        <button class="btn btn-outline-primary btn-sm" @onclick="MessageAsync">Send message</button>
+    }
 
     @if (editing)
     {
@@ -99,6 +104,13 @@ else
     private int editYear = 1;
 
     private bool isOwner => CurrentUser.User?.Id == Id;
+    
+    private async Task MessageAsync()
+    {
+        // The service finds the existing chat or creates one, so there are no duplicates.
+        var chatId = await Chat.StartDirectChatAsync(CurrentUser.User!.Id, Id);
+        NV.NavigateTo($"/chat/{chatId}");
+    }
 
     protected override async Task OnParametersSetAsync()
     {

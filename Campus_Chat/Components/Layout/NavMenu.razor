@@ -26,12 +26,12 @@
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/login" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Login
+                <span class="bi bi-arrow-right-circle-nav-menu" aria-hidden="true"></span> Login
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/myThreads" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> My Threads
+                <span class="bi bi-hash-nav-menu" aria-hidden="true"></span> My Threads
                 @if (totalUnread > 0)
                 {
                     <span class="badge bg-danger ms-2">@totalUnread</span>
@@ -40,7 +40,7 @@
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/threads" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> All Threads
+                <span class="bi bi-hash-nav-menu" aria-hidden="true"></span> All Threads
             </NavLink>
         </div>
         
@@ -48,14 +48,20 @@
         {
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="@($"/profile/{CurrentUser.User.Id}")">
-                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> My profile
+                    <span class="bi bi-person-circle-nav-menu" aria-hidden="true"></span> My Profile
                 </NavLink>
+            </div>
+            
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/people">People</NavLink>
             </div>
         }
         
+        
+        
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/chats" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Chats
+                <span class="bi bi-chat-nav-menu" aria-hidden="true"></span> Chats
             </NavLink>
         </div>
     </nav>
