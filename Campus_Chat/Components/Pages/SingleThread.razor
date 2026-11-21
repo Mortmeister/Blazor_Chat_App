@@ -6,105 +6,178 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-
-@if (loading)
-{
-    <p>Loading...</p>
-}
-else if (summary is null)
-{
-    <p>This thread doesn't exist.</p>
-    <a href="/threads">Back to all threads</a>
-}
-else
-{
-    <h1>@summary.Name</h1>
-    @if (summary.IsPrivate)
+<div class="cc-thread-page">
+    @if (loading)
     {
-        <span class="badge bg-secondary">private</span>
-    }
-
-    @if (CurrentUser.User is null)
-    {
-        <p class="my-3"><a href="/login">Log in</a> to join this thread and write posts.</p>
-    }
-    else if (!isMember)
-    {
-        <div class="my-3">
-            @if (summary.IsPrivate)
-            {
-                <input class="form-control form-control-sm mb-2" style="max-width:15rem"
-                       placeholder="Join code" @bind="code" />
-            }
-            <button class="btn btn-outline-success btn-sm" @onclick="JoinAsync">Join this thread</button>
+        <div class="cc-thread-loading">
+            <div class="spinner-border" role="status"></div>
+            <p>Loading conversation...</p>
         </div>
     }
-
-    @if (message is not null)
+    else if (summary is null)
     {
-        <p class="text-danger">@message</p>
-    }
-
-    @if (accessDenied)
-    {
-        <p>This is a private thread. @(CurrentUser.User is null ? "Log in, then" : "Enter the code above and") join to read its posts.</p>
-    }
-
-
-
-    else if (posts.Count == 0)
-    {
-        <p>No posts yet!</p>
+        <div class="cc-thread-empty">
+            <h2>Thread not found</h2>
+            <p>This conversation doesn't exist or may have been removed.</p>
+            <a href="/threads" class="cc-back-link">← Back to threads</a>
+        </div>
     }
     else
     {
-        @foreach (var post in posts.Where(p => p.ParentPostId is null))
-        {
-            @RenderPost(post, 0)
-        }
-    }
+        <header class="cc-thread-header">
+            <div class="cc-thread-header-left">
+                <a href="/threads" class="cc-thread-back">←</a>
+                <div>
+                    <div class="cc-thread-heading">
+                        <h1>@summary.Name</h1>
 
-    @if (!accessDenied && CurrentUser.User is not null)
-    {
-        <div class="border rounded p-3 mb-3">
-            @if (replyToId is not null)
+                        @if (summary.IsPrivate)
+                        {
+                            <span class="cc-private-badge">🔒 Private</span>
+                        }
+                    </div>
+                    <p class="cc-thread-subtitle">
+                        <span class="cc-online-dot"></span>
+                        @summary.MembershipCount @(summary.MembershipCount == 1 ? "member" : "members")
+                        <span>·</span>
+                        @(summary.IsPrivate ? "Private thread" : "Public thread")
+                    </p>
+                    
+                    
+                </div>
+            </div>
+        </header>
+
+        <div class="cc-thread-content">
+
+            @if (CurrentUser.User is null)
             {
-                <div class="mb-2">
-                    Replying to: <em>@ReplyPreview</em>
-                    <button class="btn btn-link btn-sm" @onclick="CancelReply">Cancel reply</button>
+                <div class="cc-access-card">
+                    <div class="cc-access-icon">👋</div>
+                    <h2>Join the conversation</h2>
+                    <p>Log in to become part of this community and share your thoughts.</p>
+                    <a href="/login" class="btn cc-primary-btn">Log in</a>
+                </div>
+            }
+            else if (!isMember)
+            {
+                <div class="cc-access-card">
+                    <div class="cc-access-icon">💬</div>
+                    <h2>Join this thread</h2>
+                    <p>Become a member to participate in this conversation.</p>
+
+                    @if (summary.IsPrivate)
+                    {
+                        <input class="form-control cc-join-input"
+                               placeholder="Enter your private join code"
+                               @bind="code" />
+                    }
+
+                    <button class="btn cc-primary-btn" @onclick="JoinAsync">
+                        Join conversation
+                    </button>
                 </div>
             }
 
-            <textarea class="form-control mb-2" rows="3" placeholder="Write a post"
-                  @bind="newText" @bind:event="oninput"></textarea>
-
-            @if (postError is not null)
+            @if (message is not null)
             {
-                <p class="text-danger">@postError</p>
+                <div class="alert alert-danger">@message</div>
             }
 
-            <button class="btn btn-primary btn-sm" @onclick="SendAsync">Post</button>
+            @if (accessDenied)
+            {
+                <div class="cc-access-card">
+                    <div class="cc-access-icon">🔒</div>
+                    <h2>This is a private conversation</h2>
+                    <p>Join this thread to see its messages.</p>
+                </div>
+            }
+            else if (posts.Count == 0)
+            {
+                <div class="cc-welcome-card">
+                    <div class="cc-welcome-icon">✦</div>
+                    <span class="cc-welcome-label">WELCOME TO THE THREAD</span>
+                    <h2>It's quiet in here...</h2>
+                    <p>Be the first to start the conversation. Share an idea, ask a question or just say hello!</p>
+                </div>
+            }
+            else
+            {
+                <div class="cc-welcome-card">
+                    <span class="cc-welcome-label">WELCOME TO THE THREAD</span>
+                    <h2>@summary.Name</h2>
+                    <p>This is the beginning of the conversation. Jump in and share your thoughts!</p>
+                </div>
+
+                <div class="cc-today-divider">
+                    <span>CONVERSATION</span>
+                </div>
+
+                <div class="cc-post-list">
+                    @foreach (var post in posts.Where(p => p.ParentPostId is null))
+                    {
+                        @RenderPost(post, 0)
+                    }
+                </div>
+            }
+
+            @if (!accessDenied && CurrentUser.User is not null && isMember)
+            {
+                <div class="cc-composer-wrapper">
+                    @if (replyToId is not null)
+                    {
+                        <div class="cc-replying">
+                            <span>↳ Replying to: <strong>@ReplyPreview</strong></span>
+                            <button @onclick="CancelReply">Cancel</button>
+                        </div>
+                    }
+
+                    <div class="cc-composer">
+                        <textarea class="cc-composer-input"
+                                  rows="2"
+                                  placeholder="Share something with the thread..."
+                                  @bind="newText"
+                                  @bind:event="oninput"></textarea>
+
+                        <div class="cc-composer-bottom">
+                            <span class="cc-composer-hint">Be kind. Keep the conversation going.</span>
+                            <button class="btn cc-send-btn"
+                                    @onclick="SendAsync"
+                                    disabled="@string.IsNullOrWhiteSpace(newText)">
+                                Send message <span>↑</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (postError is not null)
+                    {
+                        <p class="text-danger small mt-2">@postError</p>
+                    }
+                </div>
+            }
         </div>
     }
-}
+</div>
 
 @code {
     [Parameter] public Guid Id { get; set; }
 
     private ThreadSummary? summary;
     private IReadOnlyList<Post> posts = [];
-    private Dictionary<Guid, string> authors = new();
+    private Dictionary<Guid, User> authors = new();
+
     private bool loading = true;
     private bool isMember;
     private bool accessDenied;
+
     private string code = "";
     private string? message;
     private Guid? replyToId;
 
-    private void StartReply(Guid postId) => replyToId = postId;
-    
     private string newText = "";
     private string? postError;
+
+    private void StartReply(Guid postId) => replyToId = postId;
 
     private string ReplyPreview
     {
@@ -112,24 +185,27 @@ else
         {
             var target = posts.FirstOrDefault(p => p.Id == replyToId);
             if (target is null) return "";
-            return target.Text.Length > 60 ? target.Text[..60] + "..." : target.Text;
+
+            return target.Text.Length > 60
+                ? target.Text[..60] + "..."
+                : target.Text;
         }
     }
 
     private void CancelReply() => replyToId = null;
-    
-    // Draws a post, then its replies, then their replies, and so on.
+
     private RenderFragment RenderPost(Post post, int depth) => __builder =>
     {
-        <div class="@(depth is > 0 and < 4 ? "ms-4" : "")">
+        <div class="cc-post-wrapper @(depth > 0 ? "cc-post-reply" : "")"
+             style="--reply-depth:@Math.Min(depth, 4)">
+
             <PostComponent Post="post"
                            AuthorName="@AuthorName(post.AuthorId)"
                            CanDelete="@(CurrentUser.User is not null && post.AuthorId == CurrentUser.User.Id)"
-                           CanReply="@(CurrentUser.User is not null)"
-                           OnReply="StartReply" 
+                           CanReply="@(CurrentUser.User is not null && isMember)"
+                           OnReply="StartReply"
                            OnDelete="HandleDelete"
-                           />
-            
+                           AvatarColour="@AuthorColour(post.AuthorId)" />
 
             @foreach (var reply in posts.Where(r => r.ParentPostId == post.Id))
             {
@@ -138,68 +214,17 @@ else
         </div>
     };
 
-    private async Task SendAsync()
-    {
-        postError = null;
-        try
-        {
-            await Chat.AddPostAsync(CurrentUser.User!.Id, Id, newText, replyToId);
-            newText = "";
-            replyToId = null;
-            posts = await Chat.GetPostsAsync(CurrentUser.User.Id, Id);   // reload posts only, no full-page flicker
-        }
-        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException or UnauthorizedAccessException)
-        {
-            postError = ex.Message;   // these messages are written for users to read
-        }
-    }
-    
     protected override async Task OnParametersSetAsync()
     {
-        await CurrentUser.InitializeAsync();   // no redirect: visitors may read public threads
+        await CurrentUser.InitializeAsync();
         await LoadAsync();
     }
 
-    protected override void OnInitialized() => Chat.Changed += OnChanged;   // subscribe
-
-    private void OnChanged(ChatChange change)
+    protected override void OnInitialized()
     {
-        if (change.Kind != ChangeKind.Post || change.ScopeId != Id) return;   // not my thread
-
-        // The event arrives on another user's thread, so we must hop onto this circuit's thread.
-        _ = InvokeAsync(async () =>
-        {
-            try
-            {
-                await ReloadPostsAsync();
-                StateHasChanged();
-            }
-            catch (Exception) { /* circuit is closing */ }
-        });
-    }
-    
-    private async Task ReloadPostsAsync()
-    {
-        var me = CurrentUser.User?.Id ?? Guid.Empty;
-        try
-        {
-            posts = await Chat.GetPostsAsync(me, Id);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Still not allowed to read: leave the page as it is.
-        }
-        
-        if (CurrentUser.User is not null && isMember)
-        {
-            await Chat.MarkThreadReadAsync(me, Id);
-        }
+        Chat.Changed += OnChanged;
     }
 
-    public void Dispose() => Chat.Changed -= OnChanged; 
-    
-    
-    
     private async Task LoadAsync()
     {
         loading = true;
@@ -207,8 +232,8 @@ else
         message = null;
         posts = [];
 
-        // Guid.Empty means "nobody". The service then treats the caller as a plain visitor.
         var me = CurrentUser.User?.Id ?? Guid.Empty;
+
         summary = await Chat.GetSingleThreadSummaryAsync(Id);
 
         if (summary is not null)
@@ -226,21 +251,58 @@ else
             try
             {
                 posts = await Chat.GetPostsAsync(me, Id);
-                authors = (await Users.GetAllAsync()).ToDictionary(u => u.Id, u => u.DisplayName);
+                authors = (await Users.GetAllAsync()).ToDictionary(u => u.Id);
             }
             catch (UnauthorizedAccessException)
             {
                 accessDenied = true;
             }
-            
+
             if (CurrentUser.User is not null && isMember && !accessDenied)
             {
                 await Chat.MarkThreadReadAsync(me, Id);
             }
-            
         }
 
         loading = false;
+    }
+
+    private void OnChanged(ChatChange change)
+    {
+        if (change.Kind != ChangeKind.Post || change.ScopeId != Id)
+            return;
+
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await ReloadPostsAsync();
+                StateHasChanged();
+            }
+            catch (Exception)
+            {
+                // Circuit is closing.
+            }
+        });
+    }
+
+    private async Task ReloadPostsAsync()
+    {
+        var me = CurrentUser.User?.Id ?? Guid.Empty;
+
+        try
+        {
+            posts = await Chat.GetPostsAsync(me, Id);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        if (CurrentUser.User is not null && isMember)
+        {
+            await Chat.MarkThreadReadAsync(me, Id);
+        }
     }
 
     private async Task JoinAsync()
@@ -251,33 +313,75 @@ else
             code = "";
             await LoadAsync();
         }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or KeyNotFoundException)
+        catch (Exception ex) when (
+            ex is UnauthorizedAccessException or KeyNotFoundException)
         {
             message = ex.Message;
         }
     }
-    
-    private async Task HandleDelete(Guid postId)
+
+    private async Task SendAsync()
     {
         postError = null;
-        
-        var text = "Delete this post?";
 
-        if (!await JS.InvokeAsync<bool>("confirm", text)) return;
-        
-        
+        if (string.IsNullOrWhiteSpace(newText))
+            return;
+
         try
         {
-            await Chat.DeletePostAsync(CurrentUser.User!.Id, Id, postId);
-            if (replyToId == postId) replyToId = null;   // don't keep replying to something that's gone
+            await Chat.AddPostAsync(
+                CurrentUser.User!.Id,
+                Id,
+                newText,
+                replyToId);
+
+            newText = "";
+            replyToId = null;
+
             posts = await Chat.GetPostsAsync(CurrentUser.User.Id, Id);
         }
-        catch (Exception ex) when (ex is KeyNotFoundException or UnauthorizedAccessException)
+        catch (Exception ex) when (
+            ex is ArgumentException or KeyNotFoundException or UnauthorizedAccessException)
         {
             postError = ex.Message;
         }
     }
 
-    private string AuthorName(Guid authorId)
-        => authors.TryGetValue(authorId, out var name) ? name : "Unknown user";
+    private async Task HandleDelete(Guid postId)
+    {
+        postError = null;
+
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this post?"))
+            return;
+
+        try
+        {
+            await Chat.DeletePostAsync(CurrentUser.User!.Id, Id, postId);
+
+            if (replyToId == postId)
+                replyToId = null;
+
+            posts = await Chat.GetPostsAsync(CurrentUser.User.Id, Id);
+        }
+        catch (Exception ex) when (
+            ex is KeyNotFoundException or UnauthorizedAccessException)
+        {
+            postError = ex.Message;
+        }
+    }
+
+    private string AuthorName(Guid id) =>
+        authors.TryGetValue(id, out var user)
+            ? user.DisplayName
+            : "Unknown user";
+
+    private string? AuthorColour(Guid id) =>
+        authors.TryGetValue(id, out var user)
+            ? user.AvatarColour
+            : null;
+
+    public void Dispose()
+    {
+        Chat.Changed -= OnChanged;
+    }
 }

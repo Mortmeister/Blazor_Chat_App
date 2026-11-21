@@ -1,32 +1,70 @@
 @page "/threads"
+@using Campus_Chat
 @using Campus_Chat.Models
+@implements IDisposable
 @inject Campus_Chat.Services.CurrentUserService CurrentUser
 @inject Campus_Chat.Services.ChatService Chat
+@inject NavigationManager NV
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <h1 class="mb-0">Threads</h1>
+    @if (CurrentUser.User is not null && !creating)
+    {
+        <button class="btn btn-dark btn-sm" @onclick="() => creating = true">+ New thread</button>
+    }
+</div>
 
 
-<h1>All threads</h1>
+<div class="d-flex flex-wrap gap-3 align-items-center mb-3">
+    @if (CurrentUser.User is not null)
+    {
+        <div class="cc-tabs">
+            <button class="cc-tab @(showMine ? "active" : "")" @onclick="() => showMine = true">My threads</button>
+            <button class="cc-tab @(!showMine ? "active" : "")" @onclick="() => showMine = false">All threads</button>
+        </div>
+    }
+    <input type="search" class="form-control cc-search" placeholder="Search thread names"
+           @bind="searchText" @bind:event="oninput" />
+</div>
 
-<input type="search" class="form-control mb-3" style="max-width:25rem"
-       placeholder="Search thread names"
-       @bind="searchText" @bind:event="oninput" />
-
-@if (allThreads.Count == 0)
+@if (Visible.Count == 0)
 {
-    <p>There are no threads yet.</p>
-}
-else if (Visible.Count == 0)
-{
-    <p>No threads match "@searchText".</p>
+    <div class="cc-empty">
+        @if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            <p>No threads match "@searchText".</p>
+        }
+        else if (showMine && CurrentUser.User is not null)
+        {
+            <p>You haven't joined any threads yet.</p>
+            <button class="btn btn-outline-primary btn-sm" @onclick="() => showMine = false">Browse all threads</button>
+        }
+        else
+        {
+            <p>There are no threads yet.</p>
+        }
+    </div>
 }
 else
 {
     @foreach (var thread in Visible)
     {
-        <div class="card mb-2" style="max-width:25rem">
-            <div class="card-body">
-                <a href="/thread/@thread.Id"><strong>@thread.Name</strong></a>
-                @if (thread.IsPrivate) { <span class="badge bg-secondary">private</span> }
-                <div>Members: @thread.MembershipCount</div>
+        <div class="cc-thread">
+            <span class="cc-thread-icon" style="background:@UiHelpers.Accent(thread.Id)">@(thread.IsPrivate ? "🔒" : "#")</span>
+
+            <div class="cc-thread-body">
+                <div class="d-flex align-items-center gap-2">
+                    <a class="cc-thread-name" href="/thread/@thread.Id">@thread.Name</a>
+                    @if (thread.IsPrivate)
+                    {
+                        <span class="cc-tag">private</span>
+                    }
+                    @if (Unread(thread.Id) > 0)
+                    {
+                        <span class="cc-badge-unread ms-auto">@Unread(thread.Id)</span>
+                    }
+                </div>
+                <div class="cc-meta">👥 @thread.MembershipCount members</div>
 
                 @if (CurrentUser.User is null)
                 {
@@ -38,18 +76,20 @@ else
                 }
                 else
                 {
-                    @if (thread.IsPrivate)
-                    {
-                        <input class="form-control form-control-sm mt-2" placeholder="Join code"
-                               value="@GetCode(thread.Id)"
-                               @oninput="e => SetCode(thread.Id, e)" />
-                    }
-                    <button class="btn btn-outline-success btn-sm mt-2" @onclick="() => JoinAsync(thread)">Join</button>
+                    <div class="d-flex gap-2 mt-2 align-items-center">
+                        @if (thread.IsPrivate)
+                        {
+                            <input class="form-control form-control-sm" style="max-width:10rem" placeholder="Join code"
+                                   value="@GetCode(thread.Id)"
+                                   @oninput="e => SetCode(thread.Id, e)" />
+                        }
+                        <button class="btn btn-outline-success btn-sm" @onclick="() => JoinAsync(thread)">Join</button>
+                    </div>
                 }
 
                 @if (errors.TryGetValue(thread.Id, out var err))
                 {
-                    <p class="text-danger mb-0 mt-2">@err</p>
+                    <p class="text-danger small mb-0 mt-2">@err</p>
                 }
             </div>
         </div>
@@ -58,21 +98,47 @@ else
 
 @code {
     private IReadOnlyList<ThreadSummary> allThreads = [];
+    private IReadOnlyDictionary<Guid, int> unread = new Dictionary<Guid, int>();
     private HashSet<Guid> joinedIds = new();
     private readonly Dictionary<Guid, string> codes = new();
     private readonly Dictionary<Guid, string> errors = new();
     private string searchText = "";
+    private bool showMine;
+
+    // State for the "new thread" panel
+    private bool creating, newPrivate;
+    private string newName = "", newCode = "";
+    private string? createError;
+
+    private int Unread(Guid threadId) => unread.GetValueOrDefault(threadId);
 
     // Filtering is view state, so it lives in the page. The data still comes from the service.
-    private List<ThreadSummary> Visible =>
-        string.IsNullOrWhiteSpace(searchText)
-            ? allThreads.ToList()
-            : allThreads.Where(t => t.Name.Contains(searchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+    private List<ThreadSummary> Visible
+    {
+        get
+        {
+            IEnumerable<ThreadSummary> source = allThreads;
+            if (showMine && CurrentUser.User is not null)
+            {
+                source = source.Where(t => joinedIds.Contains(t.Id));
+            }
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                source = source.Where(t => t.Name.Contains(searchText.Trim(), StringComparison.OrdinalIgnoreCase));
+            }
+            return source.OrderBy(t => t.Name).ToList();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        await CurrentUser.InitializeAsync();   // loads the user if there is one, never redirects
+        await CurrentUser.InitializeAsync();     // no redirect: visitors may browse the list
+        Chat.Changed += OnChanged;               // subscribe, so unread badges move live
+
         await ReloadAsync();
+
+        // Open on "My threads" when there is something in it, otherwise show everything.
+        showMine = CurrentUser.User is not null && joinedIds.Count > 0;
     }
 
     private async Task ReloadAsync()
@@ -83,11 +149,29 @@ else
         {
             var mine = await Chat.GetThreadsForUserAsync(me.Id, me.Id);
             joinedIds = mine.Select(t => t.Id).ToHashSet();
+            unread = await Chat.GetUnreadCountsAsync(me.Id);
         }
         else
         {
             joinedIds = new();
+            unread = new Dictionary<Guid, int>();
         }
+    }
+
+    private void OnChanged(ChatChange change)
+    {
+        if (change.Kind is not (ChangeKind.Post or ChangeKind.Read)) return;
+
+        // The event arrives on another user's thread, so hop onto this circuit's thread.
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await ReloadAsync();
+                StateHasChanged();
+            }
+            catch (Exception) { /* circuit is closing */ }
+        });
     }
 
     private string GetCode(Guid threadId) => codes.GetValueOrDefault(threadId, "");
@@ -114,4 +198,8 @@ else
         await Chat.LeaveThreadAsync(CurrentUser.User!.Id, thread.Id);
         await ReloadAsync();
     }
+
+
+
+    public void Dispose() => Chat.Changed -= OnChanged;    // unsubscribe
 }

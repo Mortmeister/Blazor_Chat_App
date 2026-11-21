@@ -1,82 +1,70 @@
-﻿@inject Campus_Chat.Services.CurrentUserService CurrentUser
-@inject Campus_Chat.Services.ChatService Chat
+﻿@implements IDisposable
+@using Campus_Chat
 @using Campus_Chat.Models
-@implements IDisposable
+@inject Campus_Chat.Services.CurrentUserService CurrentUser
+@inject Campus_Chat.Services.ChatService Chat
+@inject NavigationManager NV
 
+<aside class="cc-sidebar">
+    <a class="cc-brand" href="">
+        <span class="cc-brand-mark">💬</span>
+        <span>Campus Chat</span>
+    </a>
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">The Morty Chat</a>
-    </div>
-</div>
+    <nav class="cc-nav">
+        <p class="cc-nav-label">Workspace</p>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler"/>
+        <NavLink class="cc-nav-item" href="threads" Match="NavLinkMatch.Prefix">
+            <span class="cc-nav-icon">#</span> Threads
+            @if (totalUnread > 0)
+            {
+                <span class="cc-pill">@totalUnread</span>
+            }
+        </NavLink>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            @if(CurrentUser.User != null){
-            <h3 class="text-white">User: @(CurrentUser.User?.DisplayName ?? "User")</h3>}
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/login" Match="NavLinkMatch.All">
-                <span class="bi bi-arrow-right-circle-nav-menu" aria-hidden="true"></span> Login
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/myThreads" Match="NavLinkMatch.All">
-                <span class="bi bi-hash-nav-menu" aria-hidden="true"></span> My Threads
-                @if (totalUnread > 0)
-                {
-                    <span class="badge bg-danger ms-2">@totalUnread</span>
-                }
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/threads" Match="NavLinkMatch.All">
-                <span class="bi bi-hash-nav-menu" aria-hidden="true"></span> All Threads
-            </NavLink>
-        </div>
-        
         @if (CurrentUser.User is not null)
         {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="@($"/profile/{CurrentUser.User.Id}")">
-                    <span class="bi bi-person-circle-nav-menu" aria-hidden="true"></span> My Profile
-                </NavLink>
-            </div>
-            
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="/people">People</NavLink>
-            </div>
-        }
-        
-        
-        
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/chats" Match="NavLinkMatch.All">
-                <span class="bi bi-chat-nav-menu" aria-hidden="true"></span> Chats
+            <NavLink class="cc-nav-item" href="chats" Match="NavLinkMatch.Prefix">
+                <span class="cc-nav-icon">💬</span> Messages
             </NavLink>
-        </div>
+            <NavLink class="cc-nav-item" href="people" Match="NavLinkMatch.Prefix">
+                <span class="cc-nav-icon">👥</span> People
+            </NavLink>
+        }
     </nav>
-</div>
 
+    <div class="cc-usercard">
+        @if (CurrentUser.User is { } me)
+        {
+            <a class="cc-usercard-link" href="/profile/@me.Id">
+                <span class="cc-avatar cc-avatar-sm" style="background:@UiHelpers.AvatarBackground(me.AvatarColour)">@UiHelpers.Initials(me.DisplayName)</span>
+                <span>
+                    <span class="cc-usercard-name">@me.DisplayName</span>
+                    <span class="cc-usercard-sub">Year @me.StudyYear</span>
+                </span>
+            </a>
+            <button class="cc-nav-item mt-1" @onclick="SwitchUserAsync">
+                <span class="cc-nav-icon">↩</span> Switch user
+            </button>
+        }
+        else
+        {
+            <NavLink class="cc-nav-item" href="login"><span class="cc-nav-icon">→</span> Log in</NavLink>
+            <NavLink class="cc-nav-item" href="register"><span class="cc-nav-icon">+</span> Create profile</NavLink>
+        }
+    </div>
+</aside>
 
-@code{
-
-    private string userMessage = "";
+@code {
     private int totalUnread;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        CurrentUser.OnChange += HandleCurrentUserChanged;
+        CurrentUser.OnChange += HandleUserChanged;     // subscribe
         Chat.Changed += HandleChatChanged;
+
+        await CurrentUser.InitializeAsync();
+        await RefreshUnreadAsync();
     }
 
     private async Task RefreshUnreadAsync()
@@ -86,13 +74,14 @@
             : (await Chat.GetUnreadCountsAsync(CurrentUser.User.Id)).Values.Sum();
     }
 
-    private void HandleCurrentUserChanged() => Refresh();
+    private void HandleUserChanged() => Refresh();
 
     private void HandleChatChanged(ChatChange change)
     {
         if (change.Kind is ChangeKind.Post or ChangeKind.Read) Refresh();
     }
 
+    // The events arrive on another user's thread, so we hop onto this circuit's thread first.
     private void Refresh()
     {
         _ = InvokeAsync(async () =>
@@ -102,13 +91,19 @@
                 await RefreshUnreadAsync();
                 StateHasChanged();
             }
-            catch (Exception) { /* circuit closing */ }
+            catch (Exception) { /* circuit is closing */ }
         });
     }
 
-    public void Dispose()
+    private async Task SwitchUserAsync()
     {
-        CurrentUser.OnChange -= HandleCurrentUserChanged;
+        await CurrentUser.SignOutUser();
+        NV.NavigateTo("/login");
+    }
+
+    public void Dispose()                               // unsubscribe
+    {
+        CurrentUser.OnChange -= HandleUserChanged;
         Chat.Changed -= HandleChatChanged;
     }
 }

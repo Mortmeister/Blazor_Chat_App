@@ -1,18 +1,11 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu/>
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
+<div class="cc-shell">
+    <NavMenu />
+    <main class="cc-main">
+        <div class="cc-content">
             @Body
-        </article>
+        </div>
     </main>
 </div>
 
@@ -21,3 +14,4 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
