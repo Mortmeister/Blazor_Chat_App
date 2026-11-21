@@ -341,4 +341,45 @@ public async Task SendDirectMessageAsync(Guid callerId, Guid chatId, string text
     await store.SaveDirectMessageAsync(new DirectMessage { DirectChatId = chatId, SenderId = callerId, Text = clean });
     Raise(new ChatChange(ChangeKind.Direct, chatId));
 }
+
+/// <summary>Creates a thread and joins the creator to it.</summary>
+/// <returns>The new thread's ID.</returns>
+/// <exception cref="ArgumentException">The name or code is invalid, or the name already exists.</exception>
+/// <exception cref="UnauthorizedAccessException">The caller is not a known user.</exception>
+public async Task<Guid> CreateThreadAsync(Guid callerId, string name, bool isPrivate, string? code)
+{
+    if (await users.GetByIdAsync(callerId) is null)
+    {
+        throw new UnauthorizedAccessException("Log in to create a thread.");
+    }
+
+    var cleanName = name?.Trim() ?? "";
+    if (cleanName.Length is < 3 or > 50)
+    {
+        throw new ArgumentException("A thread name must be between 3 and 50 characters.");
+    }
+
+    var cleanCode = code?.Trim();
+    if (isPrivate && (cleanCode is null || cleanCode.Length < 4))
+    {
+        throw new ArgumentException("A private thread needs a code of at least 4 characters.");
+    }
+
+    var existing = await store.GetAllThreadsAsync();
+    if (existing.Any(t => string.Equals(t.Name, cleanName, StringComparison.OrdinalIgnoreCase)))
+    {
+        throw new ArgumentException("A thread with this name already exists.");
+    }
+
+    var thread = new ChatThread
+    {
+        Name = cleanName,
+        IsPrivate = isPrivate,
+        JoinCode = isPrivate ? cleanCode : null   // a public thread never keeps a code
+    };
+    await store.SaveThreadAsync(thread);
+    await store.SaveMembershipAsync(new ThreadMembership { UserId = callerId, ThreadId = thread.Id });
+    return thread.Id;
+}
+
 }
