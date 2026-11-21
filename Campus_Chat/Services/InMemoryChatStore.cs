@@ -8,6 +8,9 @@ public class InMemoryChatStore : IChatStore
      private readonly List<ChatThread> threads = new();
      private readonly List<ThreadMembership> memberships = new();
      private readonly List<Post> posts = new();
+     private readonly List<DirectChat> directChats = new();
+     private readonly List<DirectMessage> directMessages = new();
+
      
      private readonly object gate = new();   // many browsers use this at once, so we lock
 
@@ -125,6 +128,14 @@ public class InMemoryChatStore : IChatStore
           return Task.CompletedTask;
      }
 
+     public Task<IReadOnlyList<DirectChat>> GetAllDirectChatsAsync()
+     {
+          lock (gate)
+          {
+               return Task.FromResult<IReadOnlyList<DirectChat>>(directChats.ToList());
+          }
+     }
+     
      public InMemoryChatStore() => Seed();
      private void Seed()
      {
@@ -199,8 +210,6 @@ public class InMemoryChatStore : IChatStore
      }
      
      
-     private readonly List<DirectChat> directChats = new();
-     private readonly List<DirectMessage> directMessages = new();
 
      public Task<IReadOnlyList<DirectChat>> GetDirectChatsForUserAsync(Guid userId)
      {

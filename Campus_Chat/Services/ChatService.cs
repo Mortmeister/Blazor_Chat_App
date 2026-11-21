@@ -382,4 +382,25 @@ public async Task<Guid> CreateThreadAsync(Guid callerId, string name, bool isPri
     return thread.Id;
 }
 
+/// <summary>Lists every direct chat. Only the audit role may call this.</summary>
+/// <returns>All chats, newest activity first, or an empty list when none exist.</returns>
+/// <exception cref="UnauthorizedAccessException">The caller does not hold the audit role.</exception>
+public async Task<IReadOnlyList<DirectChatSummary>> GetAllDirectChatsAsync(Guid callerId)
+{
+    if ((await users.GetByIdAsync(callerId))?.IsAuditor != true)
+        throw new UnauthorizedAccessException("Only the audit role can list every chat.");
+
+    var result = new List<DirectChatSummary>();
+    foreach (var chat in await store.GetAllDirectChatsAsync())
+    {
+        var a = await users.GetByIdAsync(chat.FirstUserId);
+        var b = await users.GetByIdAsync(chat.SecondUserId);
+        var last = (await store.GetDirectMessagesAsync(chat.Id)).LastOrDefault();
+        result.Add(new DirectChatSummary(chat.Id, Guid.Empty,
+            $"{a?.DisplayName ?? "Unknown"} and {b?.DisplayName ?? "Unknown"}",
+            last?.Text, last?.SentAt ?? chat.CreatedAt));
+    }
+    return result.OrderByDescending(c => c.LastActivity).ToList();
+}
+
 }
