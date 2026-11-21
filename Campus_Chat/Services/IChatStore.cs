@@ -30,4 +30,6 @@ public interface IChatStore
   Task<IReadOnlyList<DirectMessage>> GetDirectMessagesAsync(Guid chatId);
   Task SaveDirectMessageAsync(DirectMessage message);
   
+  Task<IReadOnlyList<DirectChat>> GetAllDirectChatsAsync();
+  
 }

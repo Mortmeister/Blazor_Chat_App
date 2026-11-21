@@ -43,12 +43,41 @@ else
     </div>
 }
 
+@if (auditChats.Count > 0)
+{
+    <h2 class="mt-4">All chats (audit role)</h2>
+    <div class="list-group" style="max-width:35rem">
+        @foreach (var c in auditChats)
+        {
+            <a class="list-group-item list-group-item-action" href="/chat/@c.ChatId">
+                <strong>@c.OtherName</strong>
+                <div class="text-muted">@(c.LastMessage ?? "No messages yet")</div>
+            </a>
+        }
+    </div>
+}
+
 @code {
     private IReadOnlyList<DirectChatSummary> chats = [];
+    private IReadOnlyList<DirectChatSummary> auditChats = [];
     private List<User> others = new();
     private Guid selectedUserId;
     private string? error;
 
+    private async Task LoadChatsAsync()
+    {
+        var me = CurrentUser.User!;
+        chats = await Chat.GetMyDirectChatsAsync(me.Id);
+
+        if (me.IsAuditor)
+        {
+            var everything = await Chat.GetAllDirectChatsAsync(me.Id);
+            // Chats the auditor is part of are already in "my chats", so leave them out here.
+            auditChats = everything.Where(a => chats.All(m => m.ChatId != a.ChatId)).ToList();
+        }
+    }
+    
+    
     protected override async Task OnInitializedAsync()
     {
         if (!await CurrentUser.EnsureSignedInAsync()) return;
@@ -56,7 +85,7 @@ else
         Chat.Changed += OnChanged;
 
         var me = CurrentUser.User!.Id;
-        chats = await Chat.GetMyDirectChatsAsync(me);
+        await LoadChatsAsync();
 
         // You can't chat with yourself, so leave yourself out of the picker.
         others = (await Users.GetAllAsync()).Where(u => u.Id != me).OrderBy(u => u.DisplayName).ToList();
@@ -72,7 +101,7 @@ else
         {
             try
             {
-                chats = await Chat.GetMyDirectChatsAsync(CurrentUser.User!.Id);
+                await LoadChatsAsync();
                 StateHasChanged();
             }
             catch (Exception) { }
@@ -80,6 +109,7 @@ else
     }
 
     public void Dispose() => Chat.Changed -= OnChanged;
+    
     
     
     private async Task StartAsync()
