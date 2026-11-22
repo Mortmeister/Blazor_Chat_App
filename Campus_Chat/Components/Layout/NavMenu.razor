@@ -91,7 +91,7 @@
                 await RefreshUnreadAsync();
                 StateHasChanged();
             }
-            catch (Exception) { /* circuit is closing */ }
+            catch (Exception) { /* circuit closing */ }
         });
     }
 
