@@ -87,7 +87,7 @@ else
         var me = CurrentUser.User!.Id;
         await LoadChatsAsync();
 
-        // You can't chat with yourself, so leave yourself out of the picker.
+        // You can't chat with yourself.
         others = (await Users.GetAllAsync()).Where(u => u.Id != me).OrderBy(u => u.DisplayName).ToList();
         selectedUserId = others.FirstOrDefault()?.Id ?? Guid.Empty;
     }

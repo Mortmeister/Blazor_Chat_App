@@ -44,16 +44,7 @@ public class InMemoryUserStore : IUserStore
         users.Add(new User { Id=SeedIds.Lecturer,DisplayName = "Lecturer", StudyYear = 5, AvatarColour = "red"});
     } 
         
-/*
- 
-      public Guid Id { get; init; } = Guid.NewGuid();
-    public string DisplayName { get; init; } = "";
-      public string Note { get; init; } = "";
-    public string AvatarColour { get; init; } = "";
-      public int StudyYear { get; init; }
-    public bool IsAuditor { get; init; }
- 
- */
+
     
     
 }
